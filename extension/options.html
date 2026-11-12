@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Почерк — настройки</title>
+    <link rel="stylesheet" href="styles/base.css" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <svg xmlns="http://www.w3.org/2000/svg" class="sprite" aria-hidden="true" focusable="false">
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6" /></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 21h20Z" /><path d="M12 9v5M12 18h.01" /></symbol>
+      <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6" /><path d="M6 8h12v3a6 6 0 0 1-12 0Z" /><path d="M12 17v5" /></symbol>
+      <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5" /><path d="m10.7 12.3 9.3-9.3M17 6l2 2M14 9l2 2" /></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></symbol>
+      <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="11" rx="3" /><path d="M5 10v1a7 7 0 0 0 14 0v-1" /><path d="M12 18v4M8 22h8" /></symbol>
+      <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" /><circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="18" cy="18" r="2" /></symbol>
+    </svg>
+
+    <header class="page-head">
+      <div class="page-head__brand">
+        <span class="brand-mark brand-mark--lg" aria-hidden="true">П</span>
+        <h1 class="page-head__title">Почерк — настройки</h1>
+      </div>
+      <div class="page-head__actions">
+        <span class="version" id="app-version">0.2.9</span>
+        <button class="ghost-btn" id="btn-save-top" type="button">Сохранить</button>
+        <button class="primary-btn" id="btn-test-top" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-plug"></use></svg>
+          Проверить соединение
+        </button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <div class="column">
+        <section class="card" aria-labelledby="h-key">
+          <div class="card__head">
+            <h2 class="card__title" id="h-key">
+              <svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg>
+              API-ключ
+            </h2>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="apiKey">Ключ DeepSeek</label>
+            <div class="input-with-action">
+              <input class="text-input" id="apiKey" type="password" spellcheck="false" autocomplete="off" placeholder="sk-…" />
+              <button class="icon-btn" id="btn-toggle-key" type="button" aria-label="Показать ключ" title="Показать/скрыть ключ">
+                <svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="test-result" id="test-result" hidden>
+            <svg class="icon" aria-hidden="true"><use id="test-icon" href="#i-check"></use></svg>
+            <div class="test-result__body">
+              <p class="test-result__title" id="test-title"></p>
+              <p class="test-result__hint" id="test-hint"></p>
+            </div>
+          </div>
+
+          <div class="card__actions">
+            <button class="primary-btn" id="btn-test" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-plug"></use></svg>
+              Проверить соединение
+            </button>
+            <button class="ghost-btn" id="btn-save" type="button">Сохранить</button>
+            <span class="card__spacer"></span>
+            <button class="danger-btn" id="btn-reset" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
+              Сбросить
+            </button>
+          </div>
+        </section>
+
+        <details class="card card--details" id="advanced">
+          <summary class="card__summary">
+            <svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>
+            Дополнительно
+          </summary>
+          <div class="details">
+            <div class="field">
+              <label class="field__label" for="temperature">Температура: <output id="temperature-out">0.4</output></label>
+              <input class="range-input" id="temperature" type="range" min="0" max="1" step="0.1" value="0.4" />
+              <p class="field__hint">Применяется к ответам, сводкам и вопросам; в thinking-режиме DeepSeek может игнорироваться.</p>
+            </div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="streaming" checked />
+              <span><strong>Стриминг ответа</strong></span>
+            </label>
+          </div>
+        </details>
+
+        <section class="card" aria-labelledby="h-privacy">
+          <div class="card__head">
+            <h2 class="card__title" id="h-privacy">
+              <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
+              Приватность
+            </h2>
+          </div>
+          <ul class="plain-list">
+            <li>Вопрос и текст письма или страницы уходят только в DeepSeek.</li>
+            <li>Ключ, история и настройки — в <code>chrome.storage.local</code>, без синхронизации.</li>
+            <li>Письма не отправляются автоматически — только вставка текста.</li>
+            <li>Внешних скриптов и CDN нет.</li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="column">
+        <section class="card" aria-labelledby="h-style">
+          <div class="card__head">
+            <h2 class="card__title" id="h-style">
+              <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg>
+              Ваш стиль письма
+            </h2>
+            <span class="badge" id="style-badge">0 примеров</span>
+          </div>
+          <p class="card__desc">Почерк подстраивается под ваши правки в письмах.</p>
+
+          <div class="grid grid--2">
+            <div class="field">
+              <label class="field__label" for="formality">Формальность: <output id="formality-out">3</output>/5</label>
+              <input class="range-input" id="formality" type="range" min="1" max="5" step="1" value="3" />
+            </div>
+            <div class="field">
+              <label class="field__label" for="length">Длина</label>
+              <select class="select-input" id="length">
+                <option value="short">Коротко</option>
+                <option value="normal">Средне</option>
+                <option value="detailed">Подробно</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="emoji">Эмодзи</label>
+              <select class="select-input" id="emoji">
+                <option value="never">Нет</option>
+                <option value="rarely">Редко</option>
+                <option value="ok">Уместно</option>
+              </select>
+            </div>
+            <div class="field">
+              <span class="field__label">Обращение</span>
+              <div class="segmented" role="radiogroup" aria-label="Обращение">
+                <label class="segmented__item">
+                  <input type="radio" name="address" value="вы" checked />
+                  <span>на «вы»</span>
+                </label>
+                <label class="segmented__item">
+                  <input type="radio" name="address" value="ты" />
+                  <span>на «ты»</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field__label">Что учитывать</span>
+            <div class="segmented" role="radiogroup" aria-label="Что учитывать при ответе">
+              <label class="segmented__item">
+                <input type="radio" name="replyContext" value="last" checked />
+                <span>Выбранное сообщение</span>
+              </label>
+              <label class="segmented__item">
+                <input type="radio" name="replyContext" value="thread" />
+                <span>Вся переписка</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="replyInstruction">Инструкция к ответам (необязательно)</label>
+            <textarea class="textarea-input" id="replyInstruction" rows="2" maxlength="500" placeholder="Например: отвечай кратко, от имени руководителя, без канцелярита"></textarea>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="signoff">Завершение</label>
+            <input class="text-input" id="signoff" type="text" placeholder="С уважением" maxlength="120" />
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="signature">Подпись</label>
+            <textarea class="textarea-input" id="signature" rows="2" maxlength="400" placeholder="Иван Петров, менеджер проектов"></textarea>
+          </div>
+
+          <div class="learned">
+            <div class="learned__head">
+              <h3 class="learned__title">Выученные правила</h3>
+              <button class="text-btn" id="btn-clear-style" type="button">Очистить</button>
+            </div>
+            <ul class="learned__list" id="learned-list"></ul>
+          </div>
+
+          <div class="card__actions">
+            <button class="ghost-btn" id="btn-export" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+              Экспорт профиля
+            </button>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="h-voice">
+          <div class="card__head">
+            <h2 class="card__title" id="h-voice">
+              <svg class="icon" aria-hidden="true"><use href="#i-mic"></use></svg>
+              Голосовой ввод
+            </h2>
+            <span class="badge" id="voice-badge">проверка…</span>
+          </div>
+          <p class="card__desc">Кнопка микрофона в боковой панели. Распознаёт браузер.</p>
+
+          <label class="checkbox-row">
+            <input type="checkbox" id="voice-enabled" checked />
+            <span><strong>Включить голосовой ввод</strong></span>
+          </label>
+
+          <div class="grid grid--2">
+            <div class="field">
+              <label class="field__label" for="voice-lang">Язык</label>
+              <select class="select-input" id="voice-lang"></select>
+            </div>
+            <div class="field">
+              <span class="field__label">Поддержка</span>
+              <p class="field__hint" id="voice-support">Проверяем…</p>
+            </div>
+          </div>
+
+          <label class="checkbox-row">
+            <input type="checkbox" id="voice-autosend" />
+            <span><strong>Отправлять сразу после распознавания</strong></span>
+          </label>
+
+          <p class="field__hint warning">Аудио обрабатывает облако браузера (Google или Microsoft) — расширение его не получает.</p>
+
+          <div class="card__actions">
+            <button class="ghost-btn" id="btn-voice-test" type="button">Проверить поддержку</button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

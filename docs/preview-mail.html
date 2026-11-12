@@ -1,0 +1,316 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Почерк — макет: ответ на письмо</title>
+<style>
+  :root{
+    --bg:#2f3440; --bg-elev:#363a46; --bg-elev-2:#3d424e; --bg-inset:#282c35;
+    --border:#434a57; --border-soft:rgba(255,255,255,.08); --border-strong:#4c5463;
+    --text:#e6e9ef; --text-muted:#aab2c0; --text-faint:#7f8898;
+    --accent:#e6e9ef; --accent-2:#c3c9d4; --accent-soft:rgba(230,233,239,.10);
+    --success:#4ec264; --success-soft:rgba(78,194,100,.12);
+    --warning:#d9a441; --warning-soft:rgba(217,164,65,.12);
+    --danger:#bf616a; --danger-soft:rgba(191,97,106,.12);
+    --grad:#e6e9ef;
+    --font:"Inter Variable","Inter","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:"Fira Code","Cascadia Code",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden}
+  body{font-family:var(--font);background:#06080c;color:var(--text);-webkit-font-smoothing:antialiased}
+  .stage{width:1440px;height:900px;padding:22px 24px;display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(900px 520px at 80% -10%,rgba(230,233,239,.05),transparent 60%),
+      #15171b}
+  .window{width:1392px;height:856px;border:1px solid #2b3444;border-radius:14px;overflow:hidden;
+    box-shadow:0 40px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.03) inset;
+    display:flex;flex-direction:column;background:#10141b}
+  /* window chrome */
+  .tabbar{height:44px;flex:none;display:flex;align-items:flex-end;gap:6px;padding:0 8px;background:#0b0e14;border-bottom:1px solid #1c2330}
+  .tabs{display:flex;align-items:flex-end;gap:4px;flex:1;min-width:0;height:100%;padding-top:8px}
+  .tab{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;min-width:0;max-width:260px;overflow:hidden;
+    border:1px solid transparent;border-bottom:none;border-radius:9px 9px 0 0;color:#8e9aac;font-size:12.5px;white-space:nowrap}
+  .tab.active{background:#10141b;border-color:#1c2330;color:#e9eef6;position:relative;top:1px}
+  .tab .fav{width:15px;height:15px;border-radius:4px;flex:none;display:grid;place-items:center;font-size:9px;font-weight:800;color:#fff}
+  .tab .x{margin-left:auto;color:#5d6a7d;font-size:14px;flex:none}.tab .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .newtab{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#66748a;font-size:17px;margin-bottom:4px}
+  .winctl{display:flex;gap:2px;align-items:center;height:100%;padding-bottom:10px}
+  .winctl span{width:40px;height:28px;display:grid;place-items:center;color:#93a0b3;font-size:13px;border-radius:6px}
+  .urlbar{height:46px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;background:#10141b;border-bottom:1px solid #1c2330}
+  .navbtn{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#8b98ab;font-size:15px}
+  .omnibox{flex:1;height:32px;display:flex;align-items:center;gap:9px;padding:0 12px;border:1px solid #232c3a;border-radius:20px;background:#0b0f15;color:#c7d1e0;font-size:12.5px}
+  .omnibox .globe{width:14px;height:14px;color:#7f8898}
+  .omnibox .path{color:#6b7788}
+  .avatar{width:26px;height:26px;border-radius:50%;background:#3d424e;display:grid;place-items:center;font-size:11px;font-weight:700;color:#e6e9ef}
+  /* content */
+  .content{flex:1;min-height:0;display:flex}
+  .gmail{flex:1;min-width:0;display:flex;flex-direction:column;background:#f6f8fc;color:#202124;position:relative}
+  .gmail-top{height:54px;flex:none;display:flex;align-items:center;gap:14px;padding:0 14px;background:#f6f8fc}
+  .gmail-burger{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#5f6368;font-size:16px}
+  .gmail-logo{font-size:19px;font-weight:600;letter-spacing:-.2px;color:#5f6368}
+  .search{flex:1;max-width:640px;height:38px;border-radius:8px;background:#eaf1fb;display:flex;align-items:center;gap:10px;padding:0 14px;color:#5f6368;font-size:13px}
+  .gmail-body{flex:1;min-height:0;display:flex}
+  .rail{width:62px;flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:8px}
+  .compose{width:44px;height:44px;border-radius:14px;background:#c2e7ff;color:#001d35;display:grid;place-items:center;font-size:18px;margin-bottom:10px;
+    box-shadow:0 1px 3px rgba(60,64,67,.25)}
+  .rail-item{width:38px;height:30px;border-radius:9px;display:grid;place-items:center;color:#444746;font-size:13px}
+  .rail-item.active{background:#d3e3fd;color:#041e49;font-weight:700}
+  .mail{flex:1;min-width:0;overflow:hidden;padding:2px 18px 0 4px}
+  .thread-head{display:flex;align-items:center;gap:10px;margin:4px 0 12px}
+  .thread-subject{font-size:20px;font-weight:500;color:#202124;letter-spacing:-.2px}
+  .thread-chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:4px;background:#e7e8eb;color:#5f6368;font-size:11px;font-weight:600}
+  .float-draft{margin-left:auto;display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 13px;border-radius:7px;
+    background:#1b1b1d;border:1px solid #1b1b1d;color:#f4f6f9;font-size:12.5px;font-weight:600;box-shadow:0 2px 8px rgba(60,64,67,.16)}
+  .float-draft .spark{width:18px;height:18px;border-radius:4px;background:#e6e9ef;color:#1b1e24;display:grid;place-items:center;font-size:10px}
+  .float-draft kbd{font-family:var(--mono);font-size:10px;color:#c9ced8;border:1px solid #3a3a3e;border-bottom-width:2px;border-radius:3px;padding:1px 4px}
+  .msg-collapsed{display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-bottom:1px solid #e8eaed;font-size:12.5px;color:#5f6368}
+  .msg-collapsed .who{width:150px;color:#202124;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .msg-collapsed .prev{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .msg-collapsed .when{margin-left:auto;color:#80868b}
+  .open-msg{padding:14px 10px 0}
+  .msg-head{display:flex;align-items:flex-start;gap:10px}
+  .msg-ava{width:34px;height:34px;border-radius:50%;background:#f2c9d8;color:#7a2c47;display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+  .msg-meta{flex:1;min-width:0}
+  .msg-meta .line1{font-size:13px;font-weight:600;color:#202124}
+  .msg-meta .line1 span{font-weight:400;color:#5f6368;font-size:12px}
+  .msg-meta .line2{font-size:11px;color:#80868b}
+  .msg-time{margin-left:auto;font-size:11px;color:#80868b}
+  .msg-body{margin:14px 0 0 44px;font-size:13.5px;line-height:1.62;color:#202124}
+  .msg-body p{margin:0 0 9px}
+  .msg-body ol{margin:0 0 9px;padding-left:22px}
+  .msg-body li{margin:2px 0}
+  .attach{display:inline-flex;align-items:center;gap:8px;margin-top:6px;height:36px;padding:0 12px;border:1px solid #dadce0;border-radius:8px;background:#fff;font-size:12px;color:#3c4043}
+  .attach .doc{width:18px;height:22px;border-radius:3px;background:#e8f0fe;color:#1a73e8;display:grid;place-items:center;font-size:8px;font-weight:800}
+  .msg-actions{display:flex;gap:8px;margin:12px 0 0 44px}
+  .gbtn{height:34px;padding:0 18px;border-radius:18px;border:1px solid #dadce0;background:#fff;color:#3c4043;font-size:13px;font-weight:500}
+  .gbtn.primary{background:#0b57d0;border-color:#0b57d0;color:#fff}
+  /* composer with inserted draft */
+  .composer{margin:16px 10px 0;border:1px solid #dadce0;border-radius:10px 10px 0 0;background:#fff;box-shadow:0 1px 3px rgba(60,64,67,.14);overflow:hidden}
+  .composer-ribbon{display:flex;align-items:center;gap:8px;padding:7px 12px;background:#f0f0ee;border-bottom:1px solid #e3e3dd;color:#1b1b1d;font-size:11.5px;font-weight:600}
+  .composer-ribbon .dot{width:7px;height:7px;border-radius:50%;background:#4ec264}
+  .composer-ribbon .spark{width:16px;height:16px;border-radius:4px;background:#1b1b1d;color:#f4f6f9;display:grid;place-items:center;font-size:9px}
+  .composer-body{padding:10px 14px 8px;font-size:13px;line-height:1.6;color:#202124;min-height:96px}
+  .composer-body .muted{color:#80868b}
+  .caret{display:inline-block;width:1.5px;height:15px;background:#0b57d0;vertical-align:-3px;margin-left:1px}
+  .composer-tools{display:flex;align-items:center;gap:14px;padding:8px 12px 10px;border-top:1px solid #f1f3f4;font-size:12px;color:#5f6368}
+  .composer-tools .chip{font-size:11px;padding:2px 8px;border:1px solid #dadce0;border-radius:12px}
+  .send{margin-left:8px;height:34px;padding:0 22px;border-radius:18px;border:0;background:#0b57d0;color:#fff;font-size:13px;font-weight:600}
+  .toast{position:absolute;left:96px;bottom:120px;display:flex;align-items:center;gap:9px;padding:9px 14px;border-radius:10px;
+    background:#202124;color:#e8eaed;font-size:12px;box-shadow:0 6px 22px rgba(0,0,0,.35)}
+  .toast .ok{width:18px;height:18px;border-radius:50%;background:#34a853;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:800}
+  /* side panel */
+  .panel{width:382px;flex:none;display:flex;flex-direction:column;background:#2f3440;
+    border-left:1px solid #26303d;position:relative}
+  .p-head{height:54px;flex:none;display:flex;align-items:center;gap:9px;padding:0 12px;border-bottom:1px solid var(--border-soft)}
+  .p-logo{width:26px;height:26px;border-radius:6px;background:var(--text);display:grid;place-items:center;color:#1b1e24;font-size:13px;font-weight:700}
+  .p-title{font-size:15px;font-weight:600;letter-spacing:.2px;color:var(--text)}
+  .p-sub{display:flex;align-items:center;gap:5px;margin-top:1px;font-size:11px;color:var(--text-faint)}
+  .p-sub .dot{width:6px;height:6px;border-radius:50%;background:var(--success)}
+  .p-actions{margin-left:auto;display:flex;gap:1px}
+  .p-icon{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--text-muted);font-size:14px}
+  .p-ctx{margin:8px 12px 0;display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:var(--bg-elev)}
+  .p-ctx .ico{width:16px;height:16px;color:var(--text-muted);flex:none}
+  .p-ctx .k{font-size:9.5px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--text-muted);font-family:var(--mono)}
+  .p-ctx .t{font-size:11.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .p-scroll{flex:1;min-height:0;overflow:hidden;padding:12px 12px 6px;display:flex;flex-direction:column;gap:9px}
+  .p-label{display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--text-faint)}
+  .p-label .tone{font-weight:600;letter-spacing:0;text-transform:none;font-size:11px;color:var(--text-muted)}
+  .variant{border:1px solid var(--border);border-radius:11px;background:var(--bg-elev);overflow:hidden}
+  .variant.selected{border-color:var(--border-strong);background:var(--bg-elev-2)}
+  .v-head{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border-soft);background:var(--bg-elev-2)}
+  .v-idx{width:18px;height:18px;border-radius:4px;background:transparent;border:1px solid var(--border-strong);color:var(--text-muted);display:grid;place-items:center;font-size:10px;font-weight:700;flex:none;font-family:var(--mono)}
+  .v-tone{flex:1;min-width:0;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;font-family:var(--mono)}
+  .v-len{font-size:10.5px;color:var(--text-faint)}
+  .v-body{padding:8px 10px;font-size:12.4px;line-height:1.5;color:var(--text)}
+  .v-actions{display:flex;flex-wrap:wrap;gap:5px;padding:0 10px 8px}
+  .mini{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:10.8px;font-weight:600}
+  .mini.primary{border-color:var(--border-strong);background:var(--text);color:#1b1e24}
+  .mini .i{font-size:10px}
+  .why{display:block;padding:7px 9px;border:1px dashed var(--border);border-radius:9px;color:var(--text-muted);font-size:11.3px;line-height:1.45}
+  .why b{color:var(--text);font-weight:600;white-space:nowrap}
+  .p-composer{flex:none;padding:8px 10px 10px;border-top:1px solid var(--border-soft)}
+  .p-field{border:1px solid var(--border);border-radius:11px;background:var(--bg-elev)}
+  .p-input{padding:9px 11px 4px;font-size:12.6px;line-height:1.45;color:var(--text-faint);min-height:38px;display:flex;align-items:center;gap:7px}
+  .p-input .ph{flex:1}
+  .p-input .kbd{font-size:10px;color:var(--text-faint);border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:1px 4px}
+  .p-tools{display:flex;align-items:center;gap:6px;padding:5px 8px 8px}
+  .p-mic{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--bg-elev-2);color:var(--text-muted);display:grid;place-items:center;font-size:13px;position:relative}
+  .p-mic:after{content:"●";position:absolute;right:3px;top:2px;font-size:6px;color:var(--danger)}
+  .p-hint{font-size:10px;color:var(--text-faint)}
+  .p-send{margin-left:auto;height:30px;padding:0 13px;border-radius:6px;background:var(--text);color:#1b1e24;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px}
+  .p-note{display:flex;align-items:center;justify-content:center;gap:5px;padding-top:7px;font-size:9.4px;color:var(--text-faint);white-space:nowrap;letter-spacing:-.1px}
+  .p-note .lock{color:var(--success)}
+  .badge-mode{position:absolute;right:12px;bottom:52px;display:none}
+  svg{display:block}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="window">
+    <!-- Chrome tab strip -->
+    <div class="tabbar">
+      <div class="tabs">
+        <div class="tab active">
+          <span class="fav" style="background:#ea4335">M</span>
+          <span class="lbl">Договор №14 — правки к пятнице — Gmail</span>
+          <span class="x">×</span>
+        </div>
+        <div class="tab">
+          <span class="fav" style="background:#4d6bfe">D</span>
+          <span class="lbl">DeepSeek</span>
+          <span class="x">×</span>
+        </div>
+        <div class="newtab">+</div>
+      </div>
+      <div class="winctl"><span>–</span><span>□</span><span>×</span></div>
+    </div>
+    <!-- URL bar -->
+    <div class="urlbar">
+      <div class="navbtn">‹</div>
+      <div class="navbtn">›</div>
+      <div class="navbtn">⟳</div>
+      <div class="omnibox">
+        <svg class="globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.6 3 14.4 0 18M12 3c-3 3.6-3 14.4 0 18"/></svg>
+        <span>mail.google.com</span><span class="path">/mail/u/0/#inbox/FMfcgz…</span>
+        <span style="margin-left:auto;color:#aab2c0">✦</span>
+      </div>
+      <div class="navbtn" style="color:#f5b544">★</div>
+      <div class="avatar">НГ</div>
+    </div>
+    <!-- Content -->
+    <div class="content">
+      <div class="gmail">
+        <div class="gmail-top">
+          <div class="gmail-burger">☰</div>
+          <div class="gmail-logo">Gmail</div>
+          <div class="search">🔍 <span>Поиск в почте</span></div>
+          <div class="gmail-burger">?</div>
+          <div class="avatar" style="width:30px;height:30px;font-size:11px">НГ</div>
+        </div>
+        <div class="gmail-body">
+          <div class="rail">
+            <div class="compose">✎</div>
+            <div class="rail-item active">✉</div>
+            <div class="rail-item">★</div>
+            <div class="rail-item">🕘</div>
+            <div class="rail-item">📎</div>
+            <div class="rail-item" style="margin-top:auto;margin-bottom:14px">⚙</div>
+          </div>
+          <div class="mail">
+            <div class="thread-head">
+              <div class="thread-subject">Договор №14 — правки к пятнице</div>
+              <span class="thread-chip">Входящие</span>
+              <div class="float-draft"><span class="spark">✦</span> Черновики <kbd>Ctrl+Shift+.</kbd></div>
+            </div>
+
+            <div class="msg-collapsed"><span class="who">Анна Смирнова</span><span class="prev">Привет! Отправила правки, посмотри…</span><span class="when">10:02</span></div>
+            <div class="msg-collapsed"><span class="who">Никита Ганин</span><span class="prev">Спасибо, гляну до вечера…</span><span class="when">10:19</span></div>
+            <div class="msg-collapsed"><span class="who">Анна Смирнова</span><span class="prev">Напомню: сроки горят…</span><span class="when">10:41</span></div>
+
+            <div class="open-msg">
+              <div class="msg-head">
+                <div class="msg-ava">АС</div>
+                <div class="msg-meta">
+                  <div class="line1">Анна Смирнова <span>&lt;a.smirnova@company.ru&gt;</span></div>
+                  <div class="line2">кому: мне · 4 письма в треде</div>
+                </div>
+                <div class="msg-time">10:42</div>
+              </div>
+              <div class="msg-body">
+                <p>Привет! Посмотрела договор. Три вопроса, чтобы закрыть до пятницы:</p>
+                <ol>
+                  <li>срок оплаты — 30 или 45 дней?</li>
+                  <li>кто отвечает за приёмку?</li>
+                  <li>нужен ли акт к 15 ноября?</li>
+                </ol>
+                <p>Если успеем сегодня — подпишем завтра утром.</p>
+              </div>
+              <div class="msg-actions"><span style="display:inline-flex"><span class="attach"><span class="doc">DOCX</span> Договор_14_правки.docx</span></span></div>
+              <div class="msg-actions">
+                <button class="gbtn">↩ Ответить</button>
+                <button class="gbtn">↪ Переслать</button>
+              </div>
+            </div>
+
+            <div class="composer">
+              <div class="composer-ribbon"><span class="spark">✦</span><span class="dot"></span> Черновик вставлен «Почерком» · письмо не отправлено</div>
+              <div class="composer-body">Привет, Анна!<br/>Спасибо за правки. По пунктам: срок оплаты — 45 дней, приёмку берём на себя, акт пришлём к 15.11.<br/>Если ок — подписываем завтра утром.<span class="caret"></span></div>
+              <div class="composer-tools">
+                <span>📎</span><span>🔗</span><span>😊</span><span>✎</span><span>🖼</span>
+                <span class="chip" style="margin-left:8px;color:#148f5c;border-color:rgba(20,143,92,.35)">✓ 1 из 3 вариантов · короткий</span>
+                <button class="send">Отправить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- «Почерк» side panel -->
+      <div class="panel">
+        <div class="p-head">
+          <div class="p-logo">П</div>
+          <div>
+            <div class="p-title">Почерк</div>
+            <div class="p-sub"><span class="dot"></span> Ключ пользователя · gpt-4o-mini</div>
+          </div>
+          <div class="p-actions">
+            <div class="p-icon">⚙</div>
+            <div class="p-icon">✕</div>
+          </div>
+        </div>
+
+        <div class="p-ctx">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+          <div style="min-width:0">
+            <div class="k">Письмо · тред из 4</div>
+            <div class="t">Анна Смирнова · тон: деловой</div>
+          </div>
+          <div style="margin-left:auto;font-size:12px;color:var(--text-faint)">↻</div>
+        </div>
+
+        <div class="p-scroll">
+          <div class="p-label"><span>Черновики ответа</span><span class="tone">3 варианта · 6 с</span></div>
+
+          <div class="variant selected">
+            <div class="v-head"><span class="v-idx">1</span><span class="v-tone">Короткий</span><span class="v-len">12 слов</span></div>
+            <div class="v-body">Привет, Анна! По договору: 45 дней, приёмку берём на себя, акт — к 15.11.</div>
+            <div class="v-actions"><span class="mini primary"><span class="i">⤓</span> Вставить</span><span class="mini"><span class="i">✎</span> Править</span><span class="mini"><span class="i">↻</span> Ещё</span></div>
+          </div>
+
+          <div class="variant">
+            <div class="v-head"><span class="v-idx">2</span><span class="v-tone">Деловой</span><span class="v-len">48 слов</span></div>
+            <div class="v-body">Анна, добрый день! Спасибо за комментарии. Срок оплаты — 45 дней, приёмку берёт на себя наша сторона, акт подготовим к 15.11. Подтвердите, пожалуйста, что этого достаточно для подписания завтра.</div>
+            <div class="v-actions"><span class="mini primary"><span class="i">⤓</span> Вставить</span><span class="mini">✎ Править</span></div>
+          </div>
+
+          <div class="variant">
+            <div class="v-head"><span class="v-idx">3</span><span class="v-tone">Тёплый</span><span class="v-len">61 слово</span></div>
+            <div class="v-body">Анна, привет! Спасибо, что быстро глянула договор. По вопросам: 45 дней по оплате, приёмку забираем на себя, акт пришлём к 15 ноября — всё успеваем.</div>
+            <div class="v-actions"><span class="mini primary">Вставить</span><span class="mini">Править</span><span class="mini">🙂 Тон</span></div>
+          </div>
+
+          <div class="why">▸ <b>Почему&nbsp;так:</b> все 3 вопроса закрыты, тон ваш, новых обещаний нет.</div>
+        </div>
+
+        <div class="p-composer">
+          <div class="p-field">
+            <div class="p-input"><span class="ph">Спросите про тред или страницу…</span><span class="kbd">Alt+M</span></div>
+            <div class="p-tools">
+              <div class="p-mic">🎤</div>
+              <span class="p-hint">Голос: наговорите ответ</span>
+              <div class="p-send">➤ Спросить</div>
+            </div>
+          </div>
+          <div class="p-note"><span class="lock">🔒</span> ключ и стиль — в этом браузере · AI не отправляет письма сам</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
+
+
+

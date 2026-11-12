@@ -1,0 +1,86 @@
+{
+  "manifest_version": 3,
+  "name": "Почерк",
+  "short_name": "Почерк",
+  "version": "0.2.9",
+  "description": "Помогает отвечать на письма в Gmail, Outlook и Яндекс Почте и разбирать страницы.",
+  "minimum_chrome_version": "114",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Почерк — открыть панель (Ctrl+Shift+Y)",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "sidePanel",
+    "contextMenus"
+  ],
+  "host_permissions": [],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*",
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*",
+        "https://outlook.live.com/*",
+        "https://mail.yandex.ru/*",
+        "https://mail.yandex.com/*",
+        "https://mail.yandex.by/*",
+        "https://mail.yandex.kz/*",
+        "https://mail.yandex.com.tr/*",
+        "https://mail.yandex.az/*",
+        "https://mail.yandex.co.il/*",
+        "https://mail.yandex.ua/*",
+        "https://mail.360.yandex.ru/*",
+        "https://mail.360.yandex.com/*",
+        "https://mail.360.yandex.by/*",
+        "https://mail.360.yandex.kz/*",
+        "https://mail.360.yandex.com.tr/*",
+        "https://mail.360.yandex.az/*",
+        "https://mail.360.yandex.co.il/*",
+        "https://mail.360.yandex.ua/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "commands": {
+    "open-panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Открыть «Почерк»"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'none'"
+  }
+}

@@ -1,6 +1,7 @@
 # Почерк — AI-двойник в браузере
 
 *Сводка проекта для разработки. Версия 0.2.9 · Chrome + Edge (Chromium / Manifest V3).*
+**Репозиторий:** <https://github.com/ganinnikita1/ai_ext>
 
 Плагин, который живёт в боковой панели браузера и помогает писать: читает письмо или страницу,
 предлагает три черновика ответа **вашим** стилем, учится на ваших правках — и никогда не нажимает
@@ -180,6 +181,10 @@ browser-ai-copilot/
 ├─ README.md                     ← этот файл
 ├─ docs/preview-mail.png         ← макет: ответ на письмо
 ├─ docs/preview-page-voice.png   ← макет: страница + голос
+├─ docs/CHROME-WEB-STORE.md      ← как опубликовать в Chrome Web Store / Edge
+├─ docs/store-listing.md         ← готовые тексты листинга, обоснование прав, data-use
+├─ docs/privacy-policy.md        ← черновик политики конфиденциальности
+├─ docs/store/                   ← скриншоты 1280×800 и promo tile 440×280
 ├─ proposals/inventor/concept.md ← продуктовый концепт (название, сценарии, UX, метрики, риски)
 ├─ proposals/engineering/architecture.md ← архитектура, приватность, интеграция с почтой
 ├─ proposals/engineering/code-review.md ← независимое ревью 0.2.8 (18 находок, severity)
@@ -253,7 +258,20 @@ architecture.md.
 
 ---
 
-## 10. Что нужно решить (к тебе)
+## 10. Публикация в Chrome Web Store (коротко)
+
+1. `extension\dist\pocherk-0.2.9.zip` → кабинет <https://chrome.google.com/webstore/devconsole> (аккаунт $5).
+2. Заполнить листинг: тексты и обоснование прав — [docs/store-listing.md](docs/store-listing.md); скриншоты
+   1280×800 — [docs/store/](docs/store/); политика — [docs/privacy-policy.md](docs/privacy-policy.md)
+   (опубликовать на GitHub Pages и вставить URL).
+3. Privacy practices: single purpose, data-use disclosure (контент писем/страниц → DeepSeek; ключ/история
+   локально), remote code = No, каждый permission объяснён.
+4. Submit → ревью 1–4 недели; для теста у 20 человек можно **Unlisted**. Edge Add-ons — тот же zip,
+   ревью 1–7 дней. Подробный чек-лист и типичные отказы — [docs/CHROME-WEB-STORE.md](docs/CHROME-WEB-STORE.md).
+
+---
+
+## 11. Что нужно решить (к тебе)
 
 1. **Имя** — оставляем «Почерк» или берём запасное? До листингов нужно проверить ТЗ и домены.
 2. **Ключ DeepSeek** — у каждого пользователя свой (BYOK, бесплатно для нас) или общий ключ продукта
@@ -273,4 +291,7 @@ architecture.md.
 - Техническая архитектура: [proposals/engineering/architecture.md](proposals/engineering/architecture.md)
 - Скелет расширения: [extension/README.md](extension/README.md)
 - UI-референс: [get-bb/bb](https://github.com/get-bb/bb)
-- Независимое код-ревью: [proposals/engineering/code-review.md](proposals/engineering/code-review.md)
+- Независимое код-ревью 0.2.8: [proposals/engineering/code-review.md](proposals/engineering/code-review.md)
+- Публикация в Chrome Web Store: [docs/CHROME-WEB-STORE.md](docs/CHROME-WEB-STORE.md)
+- Тексты листинга и обоснование прав: [docs/store-listing.md](docs/store-listing.md)
+- Политика конфиденциальности (черновик): [docs/privacy-policy.md](docs/privacy-policy.md)

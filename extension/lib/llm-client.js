@@ -406,10 +406,14 @@ export async function* streamTask({ settings, task, signal }) {
       if (error instanceof LLMError && error.code === 'PROVIDER') throw error;
       const mapped = error instanceof LLMError ? error : networkError(error);
       // DeepSeek может отклонить thinking/reasoning_effort — один повтор без них и без temperature.
+      // Только если текст ошибки действительно про эти поля, а не «invalid model»/битый запрос.
+      const providerErrorText = `${mapped.message || ''} ${mapped.hint || ''}`;
+      const thinkingRejected = /unknown field|unrecognized|unexpected|unsupported|thinking|reasoning_effort/i.test(providerErrorText);
       if (
         mapped.code === 'BAD_REQUEST' &&
         request.provider === 'deepseek' &&
         !fallbackTried &&
+        thinkingRejected &&
         request.body &&
         (request.body.thinking || request.body.reasoning_effort)
       ) {

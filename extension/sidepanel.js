@@ -944,12 +944,25 @@ class MessageView {
       renderRichText(this.body, this.message.content || '');
     }
     this.renderActions();
+    this.showDemoNotice();
+  }
+
+  showDemoNotice() {
+    const text = this.message.meta && this.message.meta.demoNotice;
+    if (!text || this.root.querySelector('.notice--demo')) return;
+    const notice = document.createElement('p');
+    notice.className = 'notice notice--demo';
+    notice.textContent = text;
+    this.root.appendChild(notice);
   }
 
   renderActions() {
     if (this.message.role !== 'assistant') return;
     this.actions.textContent = '';
-    if (!this.message.content && !(this.message.meta && this.message.meta.variants)) return;
+    const meta = this.message.meta || {};
+    // Варианты имеют собственные «Копировать/Вставить»; не дублируем ряд под сообщением.
+    if (Array.isArray(meta.variants) && meta.variants.length) return;
+    if (!this.message.content) return;
     const copyButton = this.makeMiniButton('Копировать', '#i-copy', () => this.copyAll());
     this.actions.appendChild(copyButton);
     if (state.mailAvailable) {
@@ -1003,7 +1016,8 @@ class MessageView {
   collectText() {
     const meta = this.message.meta || {};
     if (Array.isArray(meta.variants) && meta.variants.length) {
-      return meta.variants.map((v) => v.text).join('\n\n');
+      // Никогда не склеиваем все варианты в одно письмо: только первый/выбранный.
+      return meta.variants[0].text || '';
     }
     return this.message.content || '';
   }
@@ -1300,23 +1314,42 @@ async function copyToClipboard(text) {
 }
 
 async function insertTextIntoPage(text) {
-  // Перед вставкой сверяем, что открыто то же письмо, по которому сгенерирован ответ.
+  // Перед вставкой сверяем письмо: тема + отправитель/время выбранного сообщения.
+  let weakSubject = false;
   if (state.context && state.context.kind === 'mail' && state.context.mail) {
     const fresh = await contentRequest('GET_MAIL');
     if (!fresh.ok || !fresh.mail) {
-      toast('Не удалось сверить открытое письмо — обновите страницу и повторите.', true);
+      await copyToClipboard(text);
+      toast('Не удалось сверить открытое письмо — текст скопирован, вставьте вручную.', true);
       return false;
     }
-    const expected = String(state.context.mail.subject || '');
-    const actual = String(fresh.mail.subject || '');
-    if (expected && actual && expected !== actual) {
-      toast('Письмо изменилось — обновите контекст и сгенерируйте ответ заново.', true);
+    const expectedMail = state.context.mail;
+    const expectedMessages = Array.isArray(expectedMail.messages) ? expectedMail.messages : [];
+    const expectedIndex = Number.isInteger(expectedMail.focusIndex)
+      ? Math.min(Math.max(expectedMail.focusIndex, 0), Math.max(0, expectedMessages.length - 1))
+      : expectedMessages.length - 1;
+    const expectedMessage = expectedMessages[expectedIndex] || {};
+    const actualMessages = Array.isArray(fresh.mail.messages) ? fresh.mail.messages : [];
+    const expectedKey = mailSelectionKeyFor(expectedMessage);
+    const fromFound = Boolean(expectedKey) && actualMessages.some((message) => mailSelectionKeyFor(message) === expectedKey);
+    const expectedSubject = String(expectedMail.subject || '');
+    const actualSubject = String(fresh.mail.subject || '');
+    const subjectComparable = Boolean(expectedSubject && actualSubject);
+    const subjectMismatch = subjectComparable && expectedSubject !== actualSubject;
+    weakSubject = !subjectComparable;
+    if (subjectMismatch || !fromFound) {
+      await copyToClipboard(text);
+      toast('Письмо изменилось или не удалось его сверить — текст скопирован, вставьте вручную.', true);
       return false;
     }
   }
   const res = await contentRequest('INSERT_TEXT', { text });
   if (res.ok) {
-    toast('Вставлено в письмо. Проверьте текст перед отправкой.');
+    toast(
+      weakSubject
+        ? 'Вставлено. Тема письма не определена — сверили по отправителю и времени, проверьте текст.'
+        : 'Вставлено в письмо. Проверьте текст перед отправкой.',
+    );
     return true;
   }
   if (res.reason === 'COMPOSER_IN_IFRAME') {
@@ -1410,8 +1443,6 @@ function styleHints() {
 
 async function executeTask(task, options = {}) {
   if (state.busy) return null;
-  // Пользовательская температура из настроек применяется ко всем задачам.
-  if (Number.isFinite(state.settings.temperature)) task.temperature = state.settings.temperature;
   const session = ensureSession();
   const message = {
     id: uid('msg'),
@@ -1482,6 +1513,10 @@ async function executeTask(task, options = {}) {
     delete message.meta.streaming;
     state.controller = null;
     view.finishStreaming(message);
+    if (state.demo && !message.meta.error) {
+      message.meta.demoNotice = 'Демо-ответ без обращения к модели. Ключ настраивается в разделе «Настройки».';
+      view.showDemoNotice();
+    }
     setBusy(false);
     scheduleSave();
     scrollToBottom();
@@ -1492,21 +1527,13 @@ async function executeTask(task, options = {}) {
 async function sendChat(question) {
   const text = String(question || '').trim();
   if (!text) return;
-  const userMessage = { id: uid('msg'), role: 'user', content: text, ts: Date.now(), meta: {} };
-  addMessage(userMessage);
-  const view = new MessageView(userMessage);
-  liveViews.set(userMessage.id, view);
-  if (!el.chat.querySelector('.msg')) el.chat.textContent = '';
-  el.chat.appendChild(view.root);
-  scrollToBottom(true);
-  el.input.value = '';
-  resizeInput();
-  el.input.focus();
 
   const action = { name: 'chat', question: text };
   state.lastAction = action;
   const history = historyForPrompt().slice(0, -1);
 
+  // Сначала разрешаем контекст. Не добавляем сообщение в чат, пока он не подтверждён:
+  // иначе при stale/недоступной странице останется вопрос без ответа.
   let context = null;
   let accessError = null;
   if (state.context && state.context.kind === 'selection') {
@@ -1525,13 +1552,17 @@ async function sendChat(question) {
     else accessError = page.error && page.error.reason;
   }
 
-  const task = buildChatTask({
-    question: text,
-    context,
-    styleHints: styleHints(),
-    history,
-    contextScope: state.settings.replyContext === 'thread' ? 'thread' : 'last',
-  });
+  const userMessage = { id: uid('msg'), role: 'user', content: text, ts: Date.now(), meta: {} };
+  addMessage(userMessage);
+  const view = new MessageView(userMessage);
+  liveViews.set(userMessage.id, view);
+  if (!el.chat.querySelector('.msg')) el.chat.textContent = '';
+  el.chat.appendChild(view.root);
+  scrollToBottom(true);
+  el.input.value = '';
+  resizeInput();
+  el.input.focus();
+
   if (accessError && state.demo) {
     // Демо-режиму не нужен доступ к странице: показываем локальный ответ.
     accessError = null;
@@ -1555,6 +1586,14 @@ async function sendChat(question) {
     chatFocus();
     return;
   }
+
+  const task = buildChatTask({
+    question: text,
+    context,
+    styleHints: styleHints(),
+    history,
+    contextScope: state.settings.replyContext === 'thread' ? 'thread' : 'last',
+  });
   await executeTask(task, { kind: 'chat', action });
 }
 

@@ -45,28 +45,31 @@ function cleanSubject(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+function displayName(value) {
+  const withoutEmail = cleanSubject(value).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  return withoutEmail || 'коллега';
+}
+
 function replyVariants(mail) {
   const m = mail || {};
   const subject = cleanSubject(m.subject) || 'по вашему письму';
   const messages = Array.isArray(m.messages) ? m.messages : [];
   const last = messages[messages.length - 1] || {};
-  const from = cleanSubject(last.from) || 'коллега';
+  const from = displayName(last.from);
   const lastLine = firstSentences(last.text, 1, 160);
   const topic = lastLine ? `По сути вопроса: «${lastLine}»` : 'По вашему вопросу';
-  const participant = cleanSubject(m.participants && m.participants[0]) || 'коллегам';
   return [
     {
       index: 1,
       number: 1,
       tone: 'формальный',
       text: [
-        'Здравствуйте!',
+        `Здравствуйте, ${from}!`,
         '',
         `Спасибо за письмо по теме «${subject}». ${topic}`,
         'Готов(а) обсудить детали и предложить решение. Подскажите, пожалуйста, удобный срок для ответа и приоритет задачи — подготовлю уточнённый план.',
         '',
         'С уважением,',
-        '[Ваше имя]',
       ].join('\n'),
     },
     {
@@ -74,13 +77,12 @@ function replyVariants(mail) {
       number: 2,
       tone: 'нейтральный',
       text: [
-        'Привет!',
+        `Привет, ${from}!`,
         '',
         `Понял(а) задачу по письму «${subject}». ${lastLine ? `Ключевой момент: «${lastLine}».` : ''}`,
         'Сейчас соберу информацию и вернусь с ответом. Если есть жёсткий дедлайн — напишите, подстроюсь.',
         '',
         'Спасибо!',
-        '[Ваше имя]',
       ].join('\n'),
     },
     {
@@ -91,9 +93,9 @@ function replyVariants(mail) {
         `Спасибо, ${from}!`,
         '',
         `Принял(а) в работу: ${subject}.`,
-        'Вернусь с ответом до [уточнить срок]. Если срочно — позвоните.',
+        'Вернусь с ответом в ближайшее время. Если срочно — позвоните.',
         '',
-        '[Ваше имя]',
+        'С уважением,',
       ].join('\n'),
     },
   ];
@@ -197,7 +199,8 @@ function buildText(demo) {
  * @param {{task:object, signal?:AbortSignal, delayMs?:number}} options
  */
 export async function* demoStream({ task, signal, delayMs = 16 }) {
-  const text = `${buildText(task && task.demo)}\n\n— Демо-ответ без обращения к модели. Ключ и провайдер настраиваются в разделе «Настройки».`;
+  // Дисклеймер демо — отдельное UI-notice, а не часть варианта/письма.
+  const text = buildText(task && task.demo);
   const tokens = text.match(/\s*\S+/g) || [text];
   for (const token of tokens) {
     if (signal && signal.aborted) {

@@ -21,8 +21,6 @@ const el = {
   version: $('app-version'),
   apiKey: $('apiKey'),
   toggleKey: $('btn-toggle-key'),
-  temperature: $('temperature'),
-  temperatureOut: $('temperature-out'),
   streaming: $('streaming'),
   testResult: $('test-result'),
   testIcon: $('test-icon'),
@@ -111,8 +109,6 @@ function fillVoiceLanguages(selected) {
 
 function applyForm(settings, profile) {
   el.apiKey.value = settings.apiKey;
-  el.temperature.value = String(settings.temperature);
-  el.temperatureOut.textContent = String(settings.temperature);
   el.streaming.checked = settings.streaming;
 
   fillVoiceLanguages(settings.voice.lang);
@@ -141,7 +137,6 @@ function readForm() {
   const settings = normalizeSettings({
     ...state.settings,
     apiKey: el.apiKey.value.trim(),
-    temperature: Number(el.temperature.value),
     streaming: el.streaming.checked,
     replyContext: readRadio('replyContext') === 'last' ? 'last' : 'thread',
     replyInstruction: el.replyInstruction.value,
@@ -340,9 +335,6 @@ function onVoiceTest() {
 /* ------------------------------------------------------------------ */
 
 function bind() {
-  el.temperature.addEventListener('input', () => {
-    el.temperatureOut.textContent = el.temperature.value;
-  });
   el.formality.addEventListener('input', () => {
     el.formalityOut.textContent = el.formality.value;
   });

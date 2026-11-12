@@ -1,6 +1,6 @@
 # Почерк — AI-двойник в браузере
 
-*Сводка проекта для разработки. Версия 0.2.9 · Chrome + Edge (Chromium / Manifest V3).*
+*Сводка проекта для разработки. Версия 0.2.10 · Chrome + Edge (Chromium / Manifest V3).*
 **Репозиторий:** <https://github.com/ganinnikita1/ai_ext>
 
 Плагин, который живёт в боковой панели браузера и помогает писать: читает письмо или страницу,
@@ -197,13 +197,13 @@ browser-ai-copilot/
    ├─ options.html/js/css        BYOK-настройки (DeepSeek по умолчанию), стиль, голос, проверка соединения
    ├─ lib/                       LLM-клиент (SSE, DeepSeek), промпты, demo-режим, стиль, конфиг
    ├─ icons/                     иконки 16/32/48/128
-   ├─ package.ps1                сборка zip → dist/pocherk-0.2.9.zip
+   ├─ package.ps1                сборка zip → dist/pocherk-0.2.10.zip
    └─ README.md                  инструкция запуска и ограничения
 ```
 
 Скелет умеет без ключа: демо-режим отвечает шаблонными, но осмысленными черновиками; с ключом —
 стриминг от выбранного провайдера; чтение страницы и треда, вставка в композер, обучение на правке,
-голосовой ввод, история чатов. Сборка: `extension/dist/pocherk-0.2.9.zip`.
+голосовой ввод, история чатов. Сборка: `extension/dist/pocherk-0.2.10.zip`.
 
 ---
 
@@ -260,7 +260,7 @@ architecture.md.
 
 ## 10. Публикация в Chrome Web Store (коротко)
 
-1. `extension\dist\pocherk-0.2.9.zip` → кабинет <https://chrome.google.com/webstore/devconsole> (аккаунт $5).
+1. `extension\dist\pocherk-0.2.10.zip` → кабинет <https://chrome.google.com/webstore/devconsole> (аккаунт $5).
 2. Заполнить листинг: тексты и обоснование прав — [docs/store-listing.md](docs/store-listing.md); скриншоты
    1280×800 — [docs/store/](docs/store/); политика — [docs/privacy-policy.md](docs/privacy-policy.md)
    (опубликовать на GitHub Pages и вставить URL).
@@ -291,7 +291,8 @@ architecture.md.
 - Техническая архитектура: [proposals/engineering/architecture.md](proposals/engineering/architecture.md)
 - Скелет расширения: [extension/README.md](extension/README.md)
 - UI-референс: [get-bb/bb](https://github.com/get-bb/bb)
-- Независимое код-ревью 0.2.8: [proposals/engineering/code-review.md](proposals/engineering/code-review.md)
+- Командное ревью 0.2.9 (inventor + architect + reviewer): [proposals/engineering/team-review-0.2.9.md](proposals/engineering/team-review-0.2.9.md)
+- Код-ревью 0.2.8/0.2.9: [proposals/engineering/code-review.md](proposals/engineering/code-review.md), [code-review-0.2.9.md](proposals/engineering/code-review-0.2.9.md)
 - Публикация в Chrome Web Store: [docs/CHROME-WEB-STORE.md](docs/CHROME-WEB-STORE.md)
 - Тексты листинга и обоснование прав: [docs/store-listing.md](docs/store-listing.md)
 - Политика конфиденциальности (черновик): [docs/privacy-policy.md](docs/privacy-policy.md)

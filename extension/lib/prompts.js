@@ -137,7 +137,7 @@ export function buildReplyTask({
   const meta = wrapUntrusted(
     'поля письма: адресат и вложения',
     `Адресат: ${safeFrom || 'не определён'}\nВложения: ${safeFiles.join(', ') || 'нет'}`,
-    600,
+    2000,
   );
   const count = Math.max(1, Math.min(3, Number(variants) || 3));
   const userInstruction = String(instruction || '')

@@ -20,7 +20,7 @@
   if (window.__AI_COPILOT_CONTENT__) return;
   window.__AI_COPILOT_CONTENT__ = true;
 
-  const VERSION = '0.2.9';
+  const VERSION = '0.2.10';
   const LIMITS = { pageChars: 14000, mailChars: 12000, selectionChars: 4000, comptoserChars: 6000, walkBudget: 20000 };
 
   const NOISE_TAGS = new Set([

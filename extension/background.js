@@ -22,6 +22,9 @@ let cachedActiveTab = null;
 
 function rememberActiveTab(tab) {
   if (!tab || !Number.isInteger(tab.id)) return;
+  // В кэш — только настоящие http(s)-вкладки: chrome-extension:// и chrome://
+  // не должны становиться «активной вкладкой» панели.
+  if (!/^https?:/i.test(tab.url || '')) return;
   cachedActiveTab = {
     id: tab.id,
     windowId: tab.windowId,
@@ -332,6 +335,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false, reason: 'NO_TAB' });
           return;
         }
+        // Popup-fallback: активная вкладка — собственная extension-страница.
+        // Не отдаём её как контекст; панель должна использовать tabId из URL.
+        if (/^chrome-extension:/i.test(tab.url || '')) {
+          sendResponse({ ok: false, reason: 'NO_TAB' });
+          return;
+        }
         rememberActiveTab(tab);
         sendResponse({ ok: true, tab: toTabInfo(tab) });
       })
@@ -446,7 +455,13 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  // Только активная вкладка: фоновая догрузка не должна подменять контекст команды.
+  if (!tab || tab.active !== true) return;
   if (changeInfo && (changeInfo.status === 'complete' || changeInfo.url)) rememberActiveTab(tab);
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (cachedActiveTab && cachedActiveTab.id === tabId) cachedActiveTab = null;
 });
 
 chrome.tabs

@@ -1,6 +1,6 @@
 # Как выложить «Почерк» в Chrome Web Store (и Edge Add-ons)
 
-Расширение: `extension/` · артефакт: `extension/dist/pocherk-0.2.9.zip` · версия 0.2.9
+Расширение: `extension/` · артефакт: `extension/dist/pocherk-0.2.10.zip` · версия 0.2.10
 Репозиторий: <https://github.com/ganinnikita1/ai_ext>
 
 > **Сначала важное.** В Chrome Web Store можно загрузить zip, но **нельзя** загрузить «распакованное расширение»
@@ -13,7 +13,7 @@
 
 | Пункт | Статус у нас | Что сделать |
 |---|---|---|
-| Рабочий zip (manifest в корне, все файлы) | ✅ 0.2.9, 19 файлов, `options.js` на месте | пересобрать: `powershell -ExecutionPolicy Bypass -File .\extension\package.ps1` |
+| Рабочий zip (manifest в корне, все файлы) | ✅ 0.2.10, 19 файлов, `options.js` на месте | пересобрать: `powershell -ExecutionPolicy Bypass -File .\extension\package.ps1` |
 | Нет remote code / CDN / eval | ✅ проверено ревью | ничего |
 | Однозначное single purpose | ✅ «AI-помощник: ответы на письма и разбор страниц» | сформулировать в кабинете |
 | Privacy policy на публичном URL | ❌ нет URL | взять `docs/privacy-policy.md`, заменить плейсхолдеры, опубликовать (GitHub Pages) |
@@ -42,7 +42,7 @@
 ```powershell
 cd C:\Users\Nikita Ganin\Documents\deepseek-harness\default-workspace\browser-ai-copilot
 powershell -ExecutionPolicy Bypass -File .\extension\package.ps1
-# → extension\dist\pocherk-0.2.9.zip
+# → extension\dist\pocherk-0.2.10.zip
 ```
 
 Проверки перед загрузкой:
@@ -57,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File .\extension\package.ps1
 ## 3. Создать листинг и загрузить zip
 
 1. В кабинете: **New item** (Новый элемент).
-2. Загрузить `pocherk-0.2.9.zip` (перетащить/выбрать).
+2. Загрузить `pocherk-0.2.10.zip` (перетащить/выбрать).
 3. Заполнить карточку (готовые тексты — `docs/store-listing.md`):
    - **Name** (≤45 символов): `Почерк — AI-ответы в почте`
    - **Summary** (≤132): краткое описание;
@@ -96,8 +96,8 @@ powershell -ExecutionPolicy Bypass -File .\extension\package.ps1
 
 Сгенерированы из реальных макетов/скриншотов: `docs/store/`:
 
-- `screenshot-1-1280x800.png` — ответ на письмо в Gmail + панель;
-- `screenshot-2-1280x800.png` — панель «Почерк» (выбор сообщения, «что прочитано»);
+- `screenshot-1-1280x800.png` — панель «Почерк» с ответом на выбранное письмо (демо-режим);
+- `screenshot-2-1280x800.png` — та же панель с демо-уведомлением и вариантами;
 - `screenshot-3-1280x800.png` — настройки (только API-ключ, стиль, голос).
 
 Требования CWS: PNG/JPEG, ровно **1280×800** или **640×400**, до 5 штук. Не обещать того, чего нет:
@@ -139,7 +139,7 @@ powershell -ExecutionPolicy Bypass -File .\extension\package.ps1
 ## 8. Microsoft Edge Add-ons (тот же zip)
 
 1. <https://partner.microsoft.com/dashboard/microsoftedge/> → аккаунт Microsoft Partner Center.
-2. **New extension** → загрузить тот же `pocherk-0.2.9.zip`.
+2. **New extension** → загрузить тот же `pocherk-0.2.10.zip`.
 3. Заполнить листинг (можно переиспользовать тексты), скриншоты, политику приватности.
 4. Ревью обычно **1–7 рабочих дней**; после — установка из Edge Add-ons.
 5. Edge также устанавливает расширения из Chrome Web Store, поэтому можно публиковать в оба магазина.

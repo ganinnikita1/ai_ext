@@ -13,8 +13,7 @@
 
 import { STORAGE_KEYS, DEFAULT_SETTINGS, LIMITS, isWebmailHost } from './lib/config.js';
 
-const MENU_SELECTION = 'ask-ai-selection';
-const MENU_PAGE = 'ask-ai-page';
+const MENU_OPEN = 'open-ai-bro';
 const CONTENT_TARGET = 'content';
 
 let memoryPending = null;
@@ -157,23 +156,36 @@ function openPanelForTab(tab) {
 /* context menu                                                        */
 /* ------------------------------------------------------------------ */
 
+let menuSync = Promise.resolve();
+
 function createContextMenus() {
-  try {
-    chrome.contextMenus.removeAll(() => {
-      chrome.contextMenus.create({
-        id: MENU_SELECTION,
-        title: 'Спросить AI про выделенное',
-        contexts: ['selection'],
-      });
-      chrome.contextMenus.create({
-        id: MENU_PAGE,
-        title: 'AI Bro: разобрать страницу',
-        contexts: ['page'],
-      });
-    });
-  } catch (error) {
-    console.warn('[AI Bro] contextMenus:', error && error.message);
-  }
+  // Идемпотентно: вызовы с onInstalled/onStartup/старта service worker
+  // сериализуются, поэтому дубликаты id и Unchecked runtime.lastError не появляются.
+  menuSync = menuSync
+    .then(
+      () =>
+        new Promise((resolve) => {
+          try {
+            chrome.contextMenus.removeAll(() => {
+              void chrome.runtime.lastError;
+              const items = [{ id: MENU_OPEN, title: 'Открыть AI Bro', contexts: ['page', 'selection'] }];
+              for (const item of items) {
+                try {
+                  chrome.contextMenus.create(item, () => {
+                    void chrome.runtime.lastError;
+                  });
+                } catch {
+                  /* ignore */
+                }
+              }
+              resolve();
+            });
+          } catch {
+            resolve();
+          }
+        }),
+    )
+    .catch(() => {});
 }
 
 async function readSelectionFromTab(tabId) {
@@ -190,36 +202,8 @@ async function readSelectionFromTab(tabId) {
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!tab || !Number.isInteger(tab.id)) return;
-  // Жест: открываем панель синхронно, до любых await.
+  // Единственный пункт меню — открыть панель. Контент не читаем.
   openPanelForTab(tab);
-  if (info.menuItemId === MENU_SELECTION) {
-    (async () => {
-      let text = String(info.selectionText || '').trim();
-      if (!text) text = (await readSelectionFromTab(tab.id)).trim();
-      const context = {
-        kind: 'selection',
-        text: text.slice(0, LIMITS.selectionChars),
-        url: tab.url || '',
-        title: tab.title || '',
-        ts: Date.now(),
-      };
-      if (context.text) await setPending(context);
-      safeRuntimeSend({ type: 'CONTEXT_PUSH', context: context.text ? context : null });
-    })().catch(() => {});
-    return;
-  }
-  if (info.menuItemId === MENU_PAGE) {
-    (async () => {
-      await setPending({
-        kind: 'page',
-        requestPage: true,
-        url: tab.url || '',
-        title: tab.title || '',
-        ts: Date.now(),
-      });
-      safeRuntimeSend({ type: 'CONTEXT_PUSH', context: null, requestPage: true });
-    })().catch(() => {});
-  }
 });
 
 /* ------------------------------------------------------------------ */

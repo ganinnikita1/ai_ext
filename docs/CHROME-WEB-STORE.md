@@ -1,6 +1,6 @@
 # Как выложить «AI Bro» в Chrome Web Store (и Edge Add-ons)
 
-Расширение: `extension/` · артефакт: `extension/dist/aibro-0.2.16.zip` · версия 0.2.16
+Расширение: `extension/` · артефакт: `extension/dist/aibro-0.2.17.zip` · версия 0.2.17
 Репозиторий: <https://github.com/ganinnikita1/ai_ext>
 
 > **Сначала важное.** В Chrome Web Store можно загрузить zip, но **нельзя** загрузить «распакованное расширение»
@@ -13,7 +13,7 @@
 
 | Пункт | Статус у нас | Что сделать |
 |---|---|---|
-| Рабочий zip (manifest в корне, все файлы) | ✅ 0.2.16, 19 файлов, `options.js` на месте | пересобрать: `powershell -ExecutionPolicy Bypass -File .\extension\package.ps1` |
+| Рабочий zip (manifest в корне, все файлы) | ✅ 0.2.17, 19 файлов, `options.js` на месте | пересобрать: `powershell -ExecutionPolicy Bypass -File .\extension\package.ps1` |
 | Нет remote code / CDN / eval | ✅ проверено ревью | ничего |
 | Однозначное single purpose | ✅ «AI-помощник: ответы на письма и разбор страниц» | сформулировать в кабинете |
 | Privacy policy на публичном URL | ❌ нет URL | взять `docs/privacy-policy.md`, заменить плейсхолдеры, опубликовать (GitHub Pages) |
@@ -42,7 +42,7 @@
 ```powershell
 cd C:\Users\Nikita Ganin\Documents\deepseek-harness\default-workspace\browser-ai-copilot
 powershell -ExecutionPolicy Bypass -File .\extension\package.ps1
-# → extension\dist\aibro-0.2.16.zip
+# → extension\dist\aibro-0.2.17.zip
 ```
 
 Проверки перед загрузкой:
@@ -57,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File .\extension\package.ps1
 ## 3. Создать листинг и загрузить zip
 
 1. В кабинете: **New item** (Новый элемент).
-2. Загрузить `aibro-0.2.16.zip` (перетащить/выбрать).
+2. Загрузить `aibro-0.2.17.zip` (перетащить/выбрать).
 3. Заполнить карточку (готовые тексты — `docs/store-listing.md`):
    - **Name** (≤45 символов): `AI Bro — ответы и разбор переписки`
    - **Summary** (≤132): «Вставьте текст письма — AI Bro предложит ответ, краткую сводку или разбор. Без авточтения вкладок и автоотправки.»
@@ -119,14 +119,14 @@ powershell -ExecutionPolicy Bypass -File .\extension\package.ps1
 | Скриншоты не того формата | 1280×800, без рамок ОС/браузера (наши — ок) |
 | Недоступная страница политики | проверить URL в режиме инкогнито |
 
-Если отказ — исправляете, поднимаете версию (`0.2.16` → `0.2.17` в следующем релизе), загружаете новый zip, отвечаете в треде ревью.
+Если отказ — исправляете, поднимаете версию (`0.2.17` → `0.2.18` в следующем релизе), загружаете новый zip, отвечаете в треде ревью.
 Можно запросить **Unlisted** для теста у 20 человек до публичного релиза.
 
 ---
 
 ## 7. Обновления
 
-1. Правите код, поднимаете `version` в `manifest.json` (SemVer: 0.2.16 → 0.2.17).
+1. Правите код, поднимаете `version` в `manifest.json` (SemVer: 0.2.17 → 0.2.18).
 2. Собираете zip.
 3. В кабинете → ваш item → **Upload new package** → Submit.
 4. После ревью обновление уходит пользователям автоматически (Chrome проверяет раз в несколько часов).
@@ -138,7 +138,7 @@ powershell -ExecutionPolicy Bypass -File .\extension\package.ps1
 ## 8. Microsoft Edge Add-ons (тот же zip)
 
 1. <https://partner.microsoft.com/dashboard/microsoftedge/> → аккаунт Microsoft Partner Center.
-2. **New extension** → загрузить тот же `aibro-0.2.16.zip`.
+2. **New extension** → загрузить тот же `aibro-0.2.17.zip`.
 3. Заполнить листинг (можно переиспользовать тексты), скриншоты, политику приватности.
 4. Ревью обычно **1–7 рабочих дней**; после — установка из Edge Add-ons.
 5. Edge также устанавливает расширения из Chrome Web Store, поэтому можно публиковать в оба магазина.

@@ -62,13 +62,13 @@
       </div>
 
       <section class="manual" id="manual-section" aria-label="Текст для разбора">
-        <label class="manual__label" for="manual-text">Вставьте текст письма/переписки</label>
+        <label class="manual__label" for="manual-text">Вставьте текст письма или сообщения</label>
         <textarea
           class="manual__textarea"
           id="manual-text"
           rows="10"
-          maxlength="30000"
-          placeholder="Скопируйте письмо/сообщение сюда — разберу или отвечу по нему"
+          maxlength="12000"
+          placeholder="Вставьте письмо или сообщение — AI Bro разберёт текст и предложит ответ"
         ></textarea>
         <div class="manual__actions">
           <button class="ghost-btn manual__small" id="btn-manual-paste" type="button">Вставить из буфера</button>
@@ -77,22 +77,18 @@
         </div>
       </section>
 
-      <section class="quickbar" aria-label="Разбор текста">
-        <button class="chip" id="btn-reply" type="button">
+      <section class="quickbar" aria-label="Действия с вставленным текстом">
+        <button class="chip" id="btn-reply" type="button" title="Предложить ответ на вставленный текст">
           <svg class="icon" aria-hidden="true"><use href="#i-mail"></use></svg>
-          Ответить на письмо
+          <span class="chip__label">Ответить на письмо</span>
         </button>
-        <button class="chip" id="btn-brief" type="button">
+        <button class="chip" id="btn-brief" type="button" title="Кратко пересказать вставленный текст">
           <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-          Краткая сводка
+          <span class="chip__label">Краткая сводка</span>
         </button>
-        <button class="chip" id="btn-summary" type="button">
-          <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-          Разобрать письмо
-        </button>
-        <button class="chip" id="btn-summary-thread" type="button">
-          <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-          Разобрать всю переписку
+        <button class="chip" id="btn-summary" type="button" title="Разобрать вставленный текст по пунктам">
+          <svg class="icon" aria-hidden="true"><use href="#i-page"></use></svg>
+          <span class="chip__label">Разобрать письмо</span>
         </button>
       </section>
 

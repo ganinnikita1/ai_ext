@@ -27,9 +27,7 @@ const el = {
   testTitle: $('test-title'),
   testHint: $('test-hint'),
   btnTest: $('btn-test'),
-  btnTestTop: $('btn-test-top'),
   btnSave: $('btn-save'),
-  btnSaveTop: $('btn-save-top'),
   btnReset: $('btn-reset'),
   formality: $('formality'),
   formalityOut: $('formality-out'),
@@ -341,9 +339,7 @@ function bind() {
     el.toggleKey.setAttribute('aria-label', show ? 'Скрыть ключ' : 'Показать ключ');
   });
   el.btnSave.addEventListener('click', onSave);
-  el.btnSaveTop.addEventListener('click', onSave);
   el.btnTest.addEventListener('click', onTest);
-  el.btnTestTop.addEventListener('click', onTest);
   el.btnReset.addEventListener('click', onReset);
   el.btnClearStyle.addEventListener('click', onClearStyle);
   el.btnExport.addEventListener('click', onExport);

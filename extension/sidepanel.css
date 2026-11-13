@@ -1,4 +1,4 @@
-/* sidepanel.css — боковая панель «Почерка» в стиле bb:
+/* sidepanel.css — боковая панель AI Bro в стиле bb:
    плоский canvas, hairline-разделители, mono-микро-лейблы,
    инвертированные primary-кнопки, минимум теней. */
 
@@ -131,63 +131,7 @@ body {
   font-size: 11px;
 }
 
-.context-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 8px 10px 0;
-  padding: 5px 6px 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elev);
-}
-
-.context-bar__icon {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  color: var(--text-muted);
-}
-
-.context-bar__body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-  gap: 1px;
-}
-
-.context-bar__kind {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.context-bar__title {
-  font-size: 11.5px;
-  color: var(--text-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.message-meta {
-  flex: none;
-  margin: 5px 12px 1px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 1.6;
-  letter-spacing: 0.02em;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Основная ячейка ручного текста: никакого авто-контекста. */
+/* Основная ячейка ручного текста: единственный источник контекста. */
 .manual {
   flex: 0 0 auto;
   margin: 8px 10px 0;
@@ -202,9 +146,9 @@ body {
   margin: 0 0 6px;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -212,25 +156,31 @@ body {
   display: block;
   width: 100%;
   box-sizing: border-box;
-  height: clamp(150px, 30vh, 280px);
-  min-height: 120px;
+  height: clamp(160px, 31vh, 290px);
+  min-height: 132px;
   max-height: 42vh;
   resize: vertical;
-  padding: 8px;
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
-  font: 11.5px/1.5 var(--font-ui, sans-serif);
+  font: 12.5px/1.55 var(--font-sans);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .manual__textarea::placeholder {
   color: var(--text-faint);
 }
 
+.manual__textarea:hover {
+  border-color: var(--border-strong);
+}
+
 .manual__textarea:focus {
-  outline: 1px solid var(--text-muted);
-  outline-offset: 0;
+  outline: none;
+  border-color: var(--text);
+  box-shadow: var(--focus-ring);
 }
 
 .manual__actions {
@@ -238,19 +188,19 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 5px;
-  margin-top: 6px;
+  margin-top: 7px;
 }
 
 .manual__small {
-  padding: 4px 7px;
-  font-size: 10px;
+  padding: 4px 8px;
+  font-size: 10.5px;
 }
 
 .manual__counter {
   margin-left: auto;
   color: var(--text-faint);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   text-align: right;
 }
 
@@ -312,43 +262,12 @@ body {
   max-width: 44ch;
 }
 
-.suggestions {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 2px;
-}
-
-.suggestion {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text);
-  font-size: 12px;
-  text-align: left;
-  transition: background 0.12s ease, border-color 0.12s ease;
-}
-
-.suggestion:hover:not(:disabled) {
-  background: var(--bg-elev-2);
-  border-color: var(--border-strong);
-}
-
-.suggestion:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.suggestion .icon {
-  width: 14px;
-  height: 14px;
-  color: var(--text-muted);
-  flex: none;
+.empty__examples {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--text-faint);
+  max-width: 44ch;
 }
 
 /* messages */
@@ -691,36 +610,44 @@ body {
 }
 
 /* ------------------------------------------------------------------ */
-/* quick actions                                                       */
+/* primary actions: один ряд под полем ввода                           */
 /* ------------------------------------------------------------------ */
 
 .quickbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 0 12px 6px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px 10px 8px;
   flex: none;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  flex: none;
-  padding: 4px 9px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   font-size: 11.5px;
   font-weight: 500;
-  white-space: nowrap;
+  line-height: 1.25;
+  text-align: center;
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
+.chip__label {
+  min-width: 0;
+}
+
 .chip .icon {
-  width: 13px;
-  height: 13px;
+  flex: none;
+  width: 14px;
+  height: 14px;
 }
 
 .chip:hover:not(:disabled) {
@@ -729,9 +656,26 @@ body {
   border-color: var(--border-strong);
 }
 
+.chip:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 .chip:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Узкая панель (320–420 px): текст важнее иконок, ряд остаётся в одну строку. */
+@media (max-width: 420px) {
+  .chip .icon {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 /* ------------------------------------------------------------------ */

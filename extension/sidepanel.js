@@ -23,7 +23,6 @@ import {
 } from './lib/llm-client.js';
 import {
   buildChatTask,
-  buildExplainTask,
   buildReplyTask,
   buildSummaryTask,
   VariantStreamParser,
@@ -47,26 +46,12 @@ const el = {
   stop: $('btn-stop'),
   mic: $('btn-mic'),
   voiceStatus: $('voice-status'),
-  note: $('composer-note'),
   providerState: $('provider-state'),
   banner: $('mode-banner'),
   bannerText: $('mode-banner-text'),
   bannerAction: $('btn-banner-action'),
-  contextBar: $('context-bar'),
-  contextIcon: $('context-icon'),
-  contextKind: $('context-kind'),
-  contextTitle: $('context-title'),
-  messageMeta: $('message-meta'),
-  contextRemove: $('btn-context-remove'),
-  contextRefresh: $('btn-context-refresh'),
   manualSection: $('manual-section'),
-  manualToggle: $('btn-manual-toggle'),
-  manualBody: $('manual-body'),
   manualText: $('manual-text'),
-  manualChip: $('manual-chip'),
-  manualChipText: $('manual-chip-text'),
-  manualChipClear: $('btn-manual-chip-clear'),
-  manualUse: $('btn-manual-use'),
   manualPaste: $('btn-manual-paste'),
   manualClear: $('btn-manual-clear'),
   manualCounter: $('manual-counter'),
@@ -74,11 +59,9 @@ const el = {
   btnHistory: $('btn-history'),
   btnTheme: $('btn-theme'),
   btnSettings: $('btn-settings'),
-  btnExplain: $('btn-explain'),
   btnReply: $('btn-reply'),
   btnBrief: $('btn-brief'),
   btnSummary: $('btn-summary'),
-  btnSummaryThread: $('btn-summary-thread'),
   drawer: $('drawer'),
   drawerBackdrop: $('drawer-backdrop'),
   drawerClose: $('btn-drawer-close'),
@@ -95,21 +78,15 @@ const state = {
   profile: normalizeProfile(null),
   sessions: [],
   activeId: null,
-  context: null,
   tab: null,
   busy: false,
   controller: null,
   demo: true,
-  mailAvailable: false,
-  accessError: null,
-  analysisScope: 'open',
   manualText: '',
-  manualOpen: true,
   theme: 'auto',
   voice: {
     recognition: null,
     active: false,
-    supported: false,
     baseText: '',
     finalText: '',
     silenceTimer: null,
@@ -117,12 +94,10 @@ const state = {
     restarts: 0,
   },
   lastAction: null,
-  pendingRequestPage: false,
 };
 
 const liveViews = new Map();
 let saveTimer = null;
-let contextRefreshTimer = null;
 const MANUAL_LIMIT = 12000;
 
 /* ------------------------------------------------------------------ */
@@ -371,58 +346,8 @@ async function contentRequest(type, extra = {}) {
   }
 }
 
-function accessErrorText(reason) {
-  switch (reason) {
-    case 'RESTRICTED_URL':
-      return 'На служебных страницах браузера (chrome://, edge://, about:) чтение контента недоступно.';
-    case 'WEBSTORE':
-      return 'Chrome Web Store и Edge Add-ons запрещают доступ к своим страницам.';
-    case 'NO_HOST_ACCESS':
-      return 'Нет доступа к этой вкладке. Разрешите сайт кнопкой ниже или откройте панель через иконку расширения на нужной вкладке.';
-    case 'NO_RESPONSE':
-      return 'Контент-скрипт не ответил. Обновите страницу (F5) и повторите.';
-    case 'NO_TAB':
-      return 'Активная вкладка не найдена.';
-    default:
-      return 'Не удалось прочитать активную вкладку.';
-  }
-}
-
-function patternForUrl(url) {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
-    return `${parsed.origin}/*`;
-  } catch {
-    return null;
-  }
-}
-
-async function requestTabAccess() {
-  const tab = await getActiveTab();
-  const pattern = tab ? patternForUrl(tab.url) : null;
-  if (!pattern) {
-    toast('Для этой вкладки нельзя запросить доступ', true);
-    return false;
-  }
-  try {
-    const granted = await chrome.permissions.request({ origins: [pattern] });
-    if (granted) {
-      toast('Доступ к сайту разрешён');
-    }
-    return granted;
-  } catch (error) {
-    toast(error && error.message ? error.message : 'Не удалось запросить доступ', true);
-    return false;
-  }
-}
-
 /* ------------------------------------------------------------------ */
-/* context bar                                                         */
-/* ------------------------------------------------------------------ */
-
-/* ------------------------------------------------------------------ */
-/* manual message (приоритетнее страницы/письма)                         */
+/* manual message (единственный источник контекста)                    */
 /* ------------------------------------------------------------------ */
 
 function manualRaw() {
@@ -437,10 +362,6 @@ function getManualText(options = {}) {
     return raw.slice(0, MANUAL_LIMIT);
   }
   return raw;
-}
-
-function isManualActive() {
-  return Boolean(getManualText());
 }
 
 /** Псевдо-mail: единственный источник — вставленный пользователем текст. */
@@ -461,21 +382,12 @@ function manualMail() {
   };
 }
 
-function manualPreview() {
-  const raw = getManualText().replace(/\s+/g, ' ').trim();
-  return truncate(raw || 'Вставленный текст', 80);
-}
-
 function updateManualUi() {
   const raw = manualRaw();
   const length = raw.trim().length;
   el.manualCounter.textContent = `${length.toLocaleString('ru-RU')} / ${MANUAL_LIMIT.toLocaleString('ru-RU')} знаков`;
   el.manualCounter.classList.toggle('is-over', length > MANUAL_LIMIT);
   if (el.manualText.value !== raw) el.manualText.value = raw;
-}
-
-function refreshEmptyOnly() {
-  if (el.chat.querySelector('.empty')) renderChat();
 }
 
 function setManualText(value, { notify = false } = {}) {
@@ -486,39 +398,16 @@ function setManualText(value, { notify = false } = {}) {
   }
   state.manualText = next;
   updateManualUi();
-  updateQuickActions();
-  refreshEmptyOnly();
 }
 
 function clearManualText(message = 'Текст очищен') {
   state.manualText = '';
   updateManualUi();
-  updateQuickActions();
-  refreshEmptyOnly();
   toast(message);
 }
 
 function openManualField() {
   el.manualText.focus();
-}
-
-function contextTitleText(context) {
-  if (!context) return '';
-  if (context.kind === 'mail') return truncate(context.mail && context.mail.subject ? context.mail.subject : context.title || 'Письмо', 80);
-  if (context.kind === 'selection') return truncate(context.text || 'Выделенный фрагмент', 80);
-  return truncate(context.title || 'Текущая страница', 80);
-}
-
-function mailSelectionKeyFor(message) {
-  if (!message) return '';
-  return `${String(message.from || '').slice(0, 120)}|${String(message.time || '').slice(0, 60)}`;
-}
-
-function senderLabel(value) {
-  const raw = String(value || '').replace(/\s+/g, ' ').trim();
-  if (!raw) return '';
-  const withoutEmail = raw.replace(/<[^>]*>/g, '').trim();
-  return truncate(withoutEmail || raw, 40);
 }
 
 function openMessageOf(mail) {
@@ -542,97 +431,15 @@ function openOnlyMail(mail) {
   return { ...mail, messages: [open], threadMessages: [open], openMessage: open, openIndex: 0 };
 }
 
-function renderMessageMeta() {
-  return;
-}
-
-function renderContextBar() {
-  return;
-}
-
-function setContext() {
-  return;
-}
-
 function updateQuickActions() {
-  // Кнопки разбора всегда видны; без текста клик даёт подсказку.
+  // Действия всегда видны; без текста клик даёт подсказку и фокус на поле.
   el.btnReply.disabled = state.busy;
   el.btnBrief.disabled = state.busy;
   el.btnSummary.disabled = state.busy;
-  el.btnSummaryThread.disabled = state.busy;
 }
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function initContext() {
-  const tab = await getActiveTab();
-  if (!tab) {
-    setContext(null);
-    state.mailAvailable = false;
-    updateQuickActions();
-    return;
-  }
-  if (tab.restricted) {
-    state.accessError = 'RESTRICTED_URL';
-    setContext(null);
-    state.mailAvailable = false;
-    updateQuickActions();
-    return;
-  }
-  if (state.context && state.context.kind === 'selection') {
-    // Выделение не сбрасываем при обновлении вкладки, пока пользователь сам не уберёт.
-    updateQuickActions();
-    return;
-  }
-  // Оптимистично включаем почтовые действия ещё до инъекции: хост уже известен.
-  if (tab.isMail) {
-    state.mailAvailable = true;
-    updateQuickActions();
-  }
-  const ensure = await ensureContent(tab.id);
-  if (!ensure.ok) {
-    state.accessError = ensure.reason || 'INJECT_FAILED';
-    if (tab.isMail) {
-      // Не гасим кнопки на почте: content script может доехать позже,
-      // а действия при клике повторят ensure с ретраями.
-      setContext({ kind: 'mail', title: 'Письмо', site: null });
-    } else {
-      setContext(null);
-      state.mailAvailable = false;
-    }
-    updateQuickActions();
-    return;
-  }
-  state.accessError = null;
-  if (ensure.isMail) {
-    // Подтверждаем почту сразу по PING — не ждём GET_MAIL.
-    state.mailAvailable = true;
-    updateQuickActions();
-    const mailRes = await contentRequest('GET_MAIL');
-    if (mailRes.ok) {
-      state.mailAvailable = true;
-      setContext({ kind: 'mail', mail: mailRes.mail, title: mailRes.mail.subject || 'Письмо', site: mailRes.mail.site });
-    } else if (mailRes.reason === 'NOT_WEBMAIL') {
-      // Логин-экран / нет открытого письма — почтовые действия не нужны.
-      state.mailAvailable = false;
-      setContext(null);
-    } else {
-      setContext({ kind: 'mail', title: 'Письмо', site: ensure.site || null });
-    }
-  } else {
-    state.mailAvailable = false;
-    setContext({ kind: 'page', title: tab.title || 'Страница', url: tab.url });
-  }
-  updateQuickActions();
-}
-
-function scheduleContextRefresh() {
-  clearTimeout(contextRefreshTimer);
-  contextRefreshTimer = setTimeout(() => {
-    initContext().catch(() => {});
-  }, 500);
 }
 
 /* ------------------------------------------------------------------ */
@@ -675,51 +482,20 @@ function renderEmptyState() {
 
   const title = document.createElement('h2');
   title.className = 'empty__title';
-  title.textContent = 'Вставьте текст письма или переписки';
+  title.textContent = 'Здесь появится ответ';
   wrap.appendChild(title);
 
   const text = document.createElement('p');
   text.className = 'empty__text';
   text.textContent =
-    'AI Bro работает только с текстом из большой ячейки выше. Вставьте письмо или кусок переписки — разберу, сделаю краткую сводку или предложу ответ. Страницы и вёрстку почты не читаю.';
+    'Вставьте текст письма или сообщения в поле выше и выберите действие. AI Bro работает только с этим текстом и не читает страницы.';
   wrap.appendChild(text);
 
-  if (state.demo) {
-    const demoNote = document.createElement('p');
-    demoNote.className = 'notice';
-    const dot = document.createElement('span');
-    dot.className = 'status-dot';
-    dot.style.background = 'var(--warning)';
-    const label = document.createElement('span');
-    label.textContent = 'Демо-режим: ключ не задан, ответы генерируются локально.';
-    demoNote.append(dot, label);
-    wrap.appendChild(demoNote);
-  }
+  const examples = document.createElement('p');
+  examples.className = 'empty__examples';
+  examples.textContent = 'Например: «Ответь коротко и по делу» или «Что от меня хотят?»';
+  wrap.appendChild(examples);
 
-  const list = document.createElement('div');
-  list.className = 'suggestions';
-  const suggestions = [
-    { icon: '#i-mail', label: 'Ответить на письмо', run: () => generateReply() },
-    { icon: '#i-sparkles', label: 'Краткая сводка', run: () => generateSummary('open', true) },
-    { icon: '#i-sparkles', label: 'Разобрать письмо', run: () => generateSummary('open') },
-    { icon: '#i-sparkles', label: 'Разобрать всю переписку', run: () => generateSummary('thread') },
-  ];
-  if (state.demo) {
-    suggestions.push({ icon: '#i-sparkles', label: 'Показать демо-ответ', run: () => sendChat('Покажи на примере, как ты помогаешь с письмом') });
-  }
-  for (const suggestion of suggestions) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'suggestion';
-    button.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${suggestion.icon}"></use></svg>`;
-    const label = document.createElement('span');
-    label.textContent = suggestion.label;
-    button.appendChild(label);
-    button.disabled = state.busy;
-    button.addEventListener('click', () => suggestion.run());
-    list.appendChild(button);
-  }
-  wrap.appendChild(list);
   el.chat.appendChild(wrap);
 }
 function renderChat() {
@@ -963,11 +739,10 @@ class MessageView {
     // Варианты имеют собственные «Копировать/Вставить»; не дублируем ряд под сообщением.
     if (Array.isArray(meta.variants) && meta.variants.length) return;
     if (!this.message.content) return;
-    const copyButton = this.makeMiniButton('Копировать', '#i-copy', () => this.copyAll());
-    this.actions.appendChild(copyButton);
-    {
-      const insertButton = this.makeMiniButton('Вставить в письмо', '#i-insert', () => this.insertAll());
-      this.actions.appendChild(insertButton);
+    this.actions.appendChild(this.makeMiniButton('Копировать', '#i-copy', () => this.copyAll()));
+    // Вставка в письмо — только у ответа (черновика), не у сводки и не у чата.
+    if (meta.kind === 'reply') {
+      this.actions.appendChild(this.makeMiniButton('Вставить в письмо', '#i-insert', () => this.insertAll()));
     }
   }
 
@@ -1247,20 +1022,6 @@ class MessageView {
       });
       actionRow.appendChild(grant);
     }
-    if (info.code === 'NO_HOST_ACCESS' || (message && message.meta && message.meta.accessError)) {
-      const grant = document.createElement('button');
-      grant.type = 'button';
-      grant.className = 'ghost-btn';
-      grant.textContent = 'Разрешить сайт';
-      grant.addEventListener('click', async () => {
-        const granted = await requestTabAccess();
-        if (granted && action) {
-          removeMessage(message);
-          runAction(action);
-        }
-      });
-      actionRow.appendChild(grant);
-    }
     const settings = document.createElement('button');
     settings.type = 'button';
     settings.className = 'ghost-btn';
@@ -1357,11 +1118,15 @@ async function rememberEdit(draft) {
 
 function setBusy(busy) {
   state.busy = busy;
-  el.send.disabled = busy;
   el.stop.hidden = !busy;
-  el.input.disabled = false;
   document.body.classList.toggle('is-busy', busy);
+  el.chat.setAttribute('aria-busy', busy ? 'true' : 'false');
   updateQuickActions();
+  updateSendState();
+}
+
+function updateSendState() {
+  el.send.disabled = state.busy || !String(el.input.value || '').trim();
 }
 
 function historyForPrompt() {
@@ -1371,29 +1136,6 @@ function historyForPrompt() {
     .filter((m) => m.role === 'user' || (m.role === 'assistant' && m.content))
     .slice(-LIMITS.historyMessages)
     .map((m) => ({ role: m.role, content: m.content }));
-}
-
-async function resolvePage() {
-  const res = await contentRequest('GET_PAGE');
-  if (res.ok && res.page) return { page: res.page };
-  return { error: res };
-}
-
-async function resolveMail() {
-  // Перед действием всегда перечитываем открытый тред: пользователь мог выбрать
-  // другое письмо или перейти по SPA, пока панель была открыта.
-  const res = await contentRequest('GET_MAIL');
-  if (res.ok && res.mail) {
-    setContext({ kind: 'mail', mail: res.mail, title: res.mail.subject || 'Письмо', site: res.mail.site });
-    state.mailAvailable = true;
-    updateQuickActions();
-    return { mail: state.context && state.context.mail ? state.context.mail : res.mail };
-  }
-  // Мягкая деградация: не ломаем UX, если DOM временно не читается.
-  if (state.context && state.context.kind === 'mail' && state.context.mail) {
-    return { mail: state.context.mail, stale: true, error: res };
-  }
-  return { error: res };
 }
 
 function styleHints() {
@@ -1408,7 +1150,7 @@ async function executeTask(task, options = {}) {
     role: 'assistant',
     content: '',
     ts: Date.now(),
-    meta: { streaming: true, demo: state.demo, kind: options.kind || task.kind, action: options.action || state.lastAction, accessError: options.accessError || null },
+    meta: { streaming: true, demo: state.demo, kind: options.kind || task.kind, action: options.action || state.lastAction },
   };
   session.messages.push(message);
   session.ts = Date.now();
@@ -1466,7 +1208,6 @@ async function executeTask(task, options = {}) {
     } else {
       const info = describeLLMError(error);
       message.meta.error = info;
-      message.meta.accessError = info.code === 'NO_HOST_ACCESS' ? 'NO_HOST_ACCESS' : null;
     }
   } finally {
     delete message.meta.streaming;
@@ -1491,11 +1232,9 @@ async function sendChat(question) {
   state.lastAction = action;
   const history = historyForPrompt().slice(0, -1);
 
-  // Контекст — только большая ячейка. Страницы и почту не читаем.
-  let context = null;
-  let accessError = null;
+  // Контекст — только вставленный текст. Страницы и почту не читаем.
   const manual = manualMail();
-  if (manual) context = { kind: 'mail', mail: manual };
+  const context = manual ? { kind: 'mail', mail: manual } : null;
 
   const userMessage = { id: uid('msg'), role: 'user', content: text, ts: Date.now(), meta: {} };
   addMessage(userMessage);
@@ -1506,31 +1245,8 @@ async function sendChat(question) {
   scrollToBottom(true);
   el.input.value = '';
   resizeInput();
+  updateSendState();
   el.input.focus();
-
-  if (accessError && state.demo) {
-    // Демо-режиму не нужен доступ к странице: показываем локальный ответ.
-    accessError = null;
-  }
-  if (accessError) {
-    const message = {
-      id: uid('msg'),
-      role: 'assistant',
-      content: '',
-      ts: Date.now(),
-      meta: { kind: 'chat', error: { title: 'Не удалось прочитать страницу', hint: accessErrorText(accessError), code: 'NO_HOST_ACCESS' }, action, accessError },
-    };
-    addMessage(message);
-    const view2 = new MessageView(message);
-    liveViews.set(message.id, view2);
-    const empty = el.chat.querySelector('.empty');
-    if (empty) empty.remove();
-    el.chat.appendChild(view2.root);
-    view2.showError(message.meta.error, message);
-    scrollToBottom();
-    chatFocus();
-    return;
-  }
 
   const task = buildChatTask({
     question: text,
@@ -1546,54 +1262,15 @@ function chatFocus() {
   el.input.focus();
 }
 
-async function explainPage(extraQuestion = '') {
-  if (state.busy) return;
-  const pageResult = await resolvePage();
-  let page = pageResult.page;
-  if (!page) {
-    if (!state.demo) {
-      const reason = pageResult.error && pageResult.error.reason;
-      toast(`Страница недоступна: ${accessErrorText(reason)}`, true);
-      return;
-    }
-    // В демо-режиме разбор возможен и без доступа к странице.
-    page = {
-      title: (state.tab && state.tab.title) || 'Страница',
-      text: '',
-      url: (state.tab && state.tab.url) || '',
-      headings: [],
-    };
-  }
-  const userMessage = {
-    id: uid('msg'),
-    role: 'user',
-    content: extraQuestion ? `Про страницу: ${extraQuestion}` : 'Объясни эту страницу',
-    ts: Date.now(),
-    meta: {},
-  };
-  addMessage(userMessage);
-  const view = new MessageView(userMessage);
-  liveViews.set(userMessage.id, view);
-  if (!el.chat.querySelector('.msg')) el.chat.textContent = '';
-  el.chat.appendChild(view.root);
-  scrollToBottom(true);
-
-  const action = { name: 'explain', question: extraQuestion };
-  state.lastAction = action;
-  const task = buildExplainTask({ page: pageResult.page, styleHints: styleHints(), question: extraQuestion });
-  await executeTask(task, { kind: 'explain', action });
-}
-
 async function generateReply(intent = '') {
   if (state.busy) return;
   const manual = manualMail();
   if (!manual) {
-    toast('Вставьте текст письма/переписки в поле выше и нажмите кнопку.', true);
+    toast('Сначала вставьте текст письма или сообщения в поле выше.', true);
     openManualField();
     return;
   }
   const baseMail = manual;
-  state.analysisScope = 'open';
   const userMessage = {
     id: uid('msg'),
     role: 'user',
@@ -1622,27 +1299,20 @@ async function generateReply(intent = '') {
   await executeTask(task, { kind: 'reply', variantMode: true, action });
 }
 
-async function generateSummary(scope = 'open', brief = false) {
+async function generateSummary(brief = false) {
   if (state.busy) return;
   const manual = manualMail();
   if (!manual) {
-    toast('Вставьте текст письма/переписки в поле выше и нажмите кнопку.', true);
+    toast('Сначала вставьте текст письма или сообщения в поле выше.', true);
     openManualField();
     return;
   }
   const baseMail = manual;
   const briefMode = Boolean(brief);
-  const mode = briefMode ? 'open' : scope === 'thread' ? 'thread' : 'open';
-  const available = [baseMail.openMessage];
-  state.analysisScope = mode;
   const userMessage = {
     id: uid('msg'),
     role: 'user',
-    content: briefMode
-      ? 'Краткая сводка вставленного текста'
-      : mode === 'open'
-        ? 'Разбери вставленный текст'
-        : 'Разбери вставленный текст как переписку',
+    content: briefMode ? 'Краткая сводка вставленного текста' : 'Разбери вставленный текст',
     ts: Date.now(),
     meta: {},
   };
@@ -1653,19 +1323,17 @@ async function generateSummary(scope = 'open', brief = false) {
   el.chat.appendChild(view.root);
   scrollToBottom(true);
 
-  const action = { name: 'summary', scope: briefMode ? 'open' : mode, brief: briefMode };
+  const action = { name: 'summary', brief: briefMode };
   state.lastAction = action;
-  const taskMail = mode === 'open' ? openOnlyMail(baseMail) : baseMail;
-  const task = buildSummaryTask({ mail: taskMail, styleHints: styleHints(), scope: mode, brief: briefMode });
+  const task = buildSummaryTask({ mail: openOnlyMail(baseMail), styleHints: styleHints(), scope: 'open', brief: briefMode });
   await executeTask(task, { kind: briefMode ? 'brief' : 'summary', action });
 }
 
 function runAction(action) {
   if (!action) return;
   if (action.name === 'chat') return sendChat(action.question);
-  if (action.name === 'explain') return undefined;
   if (action.name === 'reply') return generateReply(action.intent || '');
-  if (action.name === 'summary') return generateSummary(action.scope || 'open', Boolean(action.brief));
+  if (action.name === 'summary') return generateSummary(Boolean(action.brief));
   return undefined;
 }
 
@@ -1776,10 +1444,6 @@ const VOICE_ERRORS = {
   'language-not-supported': 'Язык распознавания не поддерживается. Выберите другой в настройках.',
   'bad-grammar': 'Ошибка распознавания. Попробуйте ещё раз.',
 };
-
-function voiceAvailable() {
-  return !!SpeechRecognitionCtor && state.settings.voice.enabled;
-}
 
 function refreshVoiceUi() {
   const supported = !!SpeechRecognitionCtor;
@@ -1975,7 +1639,10 @@ async function onSubmit(event) {
 
 function bindEvents() {
   el.form.addEventListener('submit', onSubmit);
-  el.input.addEventListener('input', resizeInput);
+  el.input.addEventListener('input', () => {
+    resizeInput();
+    updateSendState();
+  });
   el.input.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
@@ -1988,16 +1655,12 @@ function bindEvents() {
   });
   el.stop.addEventListener('click', stopStreaming);
   el.mic.addEventListener('click', startVoice);
-  el.send.addEventListener('click', () => resizeInput());
   el.btnReply.addEventListener('click', () => generateReply());
-  el.btnBrief.addEventListener('click', () => generateSummary('open', true));
-  el.btnSummary.addEventListener('click', () => generateSummary('open'));
-  el.btnSummaryThread.addEventListener('click', () => generateSummary('thread'));
+  el.btnBrief.addEventListener('click', () => generateSummary(true));
+  el.btnSummary.addEventListener('click', () => generateSummary(false));
   el.manualText.addEventListener('input', () => {
     state.manualText = el.manualText.value;
     updateManualUi();
-    updateQuickActions();
-    refreshEmptyOnly();
   });
   el.manualPaste.addEventListener('click', async () => {
     try {
@@ -2009,13 +1672,17 @@ function bindEvents() {
         return;
       }
       setManualText(text, { notify: true });
+      el.manualText.focus();
       toast('Вставлено из буфера');
     } catch {
       el.manualText.focus();
       toast('Буфер недоступен — вставьте вручную (Ctrl+V).', true);
     }
   });
-  el.manualClear.addEventListener('click', () => clearManualText());
+  el.manualClear.addEventListener('click', () => {
+    clearManualText();
+    el.manualText.focus();
+  });
   el.btnNew.addEventListener('click', newChat);
   el.btnHistory.addEventListener('click', () => (el.drawer.hidden ? openDrawer() : closeDrawer()));
   el.drawerClose.addEventListener('click', closeDrawer);
@@ -2044,32 +1711,11 @@ function bindEvents() {
       applyTheme();
       refreshVoiceUi();
       refreshProviderState();
-      renderContextBar();
     }
     if (changes[STORAGE_KEYS.profile]) {
       state.profile = normalizeProfile(changes[STORAGE_KEYS.profile].newValue);
     }
   });
-}
-
-async function consumePendingContext() {
-  try {
-    const res = await chrome.runtime.sendMessage({ type: 'GET_PENDING_CONTEXT', clear: true });
-    const context = res && res.context;
-    if (!context || typeof context !== 'object') return false;
-    if (context.requestPage) state.pendingRequestPage = true;
-    if (context.kind === 'mail' && context.mail) {
-      setContext({ kind: 'mail', mail: context.mail, title: context.mail.subject || 'Письмо', site: context.mail.site });
-      state.mailAvailable = true;
-    } else if (context.kind === 'selection' && context.text) {
-      setContext({ kind: 'selection', text: context.text, title: context.title || '' });
-    } else if (context.kind === 'page' && context.page) {
-      setContext({ kind: 'page', page: context.page, title: context.page.title || 'Страница', url: context.page.url });
-    }
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function init() {
@@ -2081,12 +1727,13 @@ async function init() {
   applyTheme();
   refreshVoiceUi();
   resizeInput();
+  updateSendState();
   await refreshProviderState();
   bindEvents();
   updateManualUi();
   renderChat();
   updateQuickActions();
-  chatFocus();
+  el.manualText.focus();
 }
 
 init().catch((error) => {

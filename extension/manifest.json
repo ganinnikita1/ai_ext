@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "AI Bro",
   "short_name": "AI Bro",
-  "version": "0.2.16",
-  "description": "AI Bro: ответы на письма и разбор страниц в Gmail, Outlook и Яндекс Почте.",
+  "version": "0.2.17",
+  "description": "AI Bro: ответы на письма и разбор вставленного текста в Gmail, Outlook и Яндекс Почте.",
   "minimum_chrome_version": "114",
   "icons": {
     "16": "icons/icon16.png",

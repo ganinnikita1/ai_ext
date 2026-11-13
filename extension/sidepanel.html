@@ -67,18 +67,12 @@
           <span class="context-bar__kind" id="context-kind">Страница</span>
           <span class="context-bar__title" id="context-title"></span>
         </div>
-        <span class="badge context-bar__scope" id="context-scope" hidden></span>
         <button class="icon-btn icon-btn--sm" id="btn-context-refresh" type="button" title="Обновить контекст" aria-label="Обновить контекст">
           <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>
         </button>
         <button class="icon-btn icon-btn--sm" id="btn-context-remove" type="button" title="Убрать контекст" aria-label="Убрать контекст">
           <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
         </button>
-      </div>
-
-      <div class="message-picker" id="message-picker" hidden>
-        <label class="message-picker__label" for="message-select">Сообщение</label>
-        <select class="select-input message-picker__select" id="message-select" aria-label="Какое сообщение треда учитывать"></select>
       </div>
 
       <div class="message-meta" id="message-meta" hidden></div>
@@ -96,7 +90,11 @@
         </button>
         <button class="chip" id="btn-summary" type="button" disabled>
           <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
-          Сводка письма
+          Разобрать письмо
+        </button>
+        <button class="chip" id="btn-summary-thread" type="button" disabled>
+          <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+          Разобрать всю переписку
         </button>
       </section>
 

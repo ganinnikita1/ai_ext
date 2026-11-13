@@ -174,41 +174,6 @@ body {
   text-overflow: ellipsis;
 }
 
-.context-bar__scope {
-  flex: none;
-  padding: 1px 5px;
-  font-size: 9px;
-}
-
-.message-picker {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 6px 10px 0;
-  padding: 0 2px;
-}
-
-.message-picker__label {
-  flex: none;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.message-picker__select {
-  width: 100%;
-  min-width: 0;
-  padding: 4px 24px 4px 7px;
-  border-radius: var(--radius-sm);
-  background-color: var(--bg-elev);
-  font-size: 11px;
-  color: var(--text);
-  text-overflow: ellipsis;
-}
-
 .message-meta {
   flex: none;
   margin: 5px 12px 1px;
@@ -660,15 +625,10 @@ body {
 
 .quickbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 0 12px 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
   flex: none;
-}
-
-.quickbar::-webkit-scrollbar {
-  display: none;
 }
 
 .chip {

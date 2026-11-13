@@ -2,7 +2,7 @@
 
 Документ для инженерного ревью, стора и следующего шага разработки. Кодовый скелет —
 `browser-ai-copilot/extension`, продуктовый концепт — `browser-ai-copilot/proposals/inventor/concept.md`.
-Название продукта: **Почерк**, версия скелета 0.2.10.
+Название продукта: **Почерк**, версия скелета 0.2.12.
 
 ## 1. Границы этого этапа
 
@@ -110,12 +110,12 @@ DeepSeek; localhost-хосты не используются, провайдер
                                                                   └─────────────┘
 ```
 
-Поток «ответ на письмо»: панель → `GET_ACTIVE_TAB` → `ENSURE_CONTENT` → `GET_MAIL` (перечитывается перед каждым действием; content script шлёт `MAIL_CONTEXT_CHANGED` при смене письма/фокуса, debounce 1.5 с) →
+Поток «ответ на письмо»: панель → `GET_ACTIVE_TAB` → `ENSURE_CONTENT` → `GET_MAIL` (перечитывается перед каждым действием; content script шлёт `MAIL_CONTEXT_CHANGED` при смене открытого письма, debounce 1.5 с) →
 `lib/prompts.buildReplyTask` (тред оборачивается как недоверенные данные) → `llm-client` →
 стрим → парсер вариантов → карточки → `INSERT_TEXT` в композер → пользователь правит и отправляет. Кнопка панели — «Спросить» (не отправка письма); вставка идёт только выбранным вариантом; демо-дисклеймер показывается отдельным UI-notice и не попадает в тело.
-Промпты: `formatMailForPrompt` отделяет историю от выбранного/последнего сообщения (`focusIndex`), выводит
-`Вложения: …` и помечает пересылаемое письмо; scope `'last'` (default) берёт только выбранное в панели
-сообщение, `'thread'` — всю переписку; summary/chat принимают тот же scope, reply передаёт `Адресат`/`Вложения` и запрещает придумывать имена; picker показывает «От · время · вложения».
+Промпты: content script отдаёт `openMessage` (открытое письмо) и `threadMessages` (все сообщения reading pane);
+`formatMailForPrompt({scope:'open'|'thread'})` для open берёт только `openMessage`, для thread — все
+`threadMessages`; reply всегда open; summary/chat scope задаёт кнопка; анти-галлюцинации (Адресат/Вложения) сохранены.
 
 ### Формат сообщений
 
@@ -197,9 +197,9 @@ PDF-вложения, «показать скрытую часть») недос
 
 **Яндекс Почта и Яндекс 360 (best-effort).** Домены `mail.yandex.*` (8) и `mail.360.yandex.*` (8)
 добавлены в `content_scripts` (20 доменов почты всего), `WEBMAIL_HOSTS` и `detectSite()` (site = `yandex`).
-Приоритет чтения: BEM-карточки классического 360 (`.mail-Message`, `.mail-Thread-Message` с
-`.mail-Message-Body`; сниппеты `.mail-MessageSnippet` отбрасываются) → `data-testid`/хешированные классы
-→ весь `main` как одно сообщение. Тема — `.mail-Thread-Subject`/`.mail-Message-Subject`/`h1`/`h2`/title;
+Приоритет чтения: только **область чтения открытого письма** (`.mail-MessageView`/`.mail-Thread`/`.mail-Content`/`[role="main"]`), не `document.body`/layout; внутри — BEM-карточки `.mail-Message`/`.mail-Thread-Message` с
+`.mail-Message-Body`; сайдбары/списки (`.mail-ThreadsList`, `.mail-MessageList`, `[class*="Sidebar"]`, `[class*="Snippet"]`, `[class*="related"]`, `[role="complementary"]`) исключаются из `openMessage`/`threadMessages`/attachments/темы; сниппеты отбрасываются; если видно одно письмо — threadMessages = [оно]. Сообщения ниже вьюпорта читаются, если уже отрисованы в DOM reading pane; свёрнутые/ленивые — только после «Открыть всю переписку»/прокрутки.
+Тема — `.mail-Thread-Subject`/`.mail-Message-Subject`/`h1`/`h2`/title;
 отправитель — `.mail-Message-Sender`/`.mail-Message-Header-From`/`[class*="Sender"]`/`mailto` (display name + email, без аватара); получатель — «Кому:»; время — `.mail-Message-Date`/`time`/дата в шапке;
 тело — `.mail-Message-Body`; вложения — `.mail-Message-Attachments`/`[class*="Attachment"]`/`[download_url]` (только имена файлов); `cleanYandexBody` вырезает цитаты (blockquote, вложенные `.mail-Message`/`.mail-Message-Body`, «… пишет:»), но сохраняет блок «Пересылаемое сообщение». Если темы или отправителя нет —
 `degraded: true`. Вставка: `.mail-Compose-Body` — приоритетный селектор композера; если композер в iframe,
@@ -234,7 +234,7 @@ DOM даёт 80% ценности за 1% усилий; OAuth — отдельн
    `extension/dist/pocherk-<version>.zip`, manifest в корне архива;
 5. печатает размер, число и список записей.
 
-Версионирование: SemVer в `manifest.json`; `0.1.x` — первый скелет, `0.2.10` — UX-фиксы ревью: «Спросить», один вариант, демо, кэш вкладок
+Версионирование: SemVer в `manifest.json`; `0.1.x` — первый скелет, `0.2.12` — открытое письмо и две кнопки анализа
 по умолчанию, `0.3.0` — бета с OAuth-гибридом, `1.0.0` — публичный релиз. Каждый релиз — отдельный zip,
 старые не перезаписываем; changelog в
 `proposals/engineering/`.

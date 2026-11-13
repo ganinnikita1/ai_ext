@@ -20,7 +20,7 @@
   if (window.__AI_COPILOT_CONTENT__) return;
   window.__AI_COPILOT_CONTENT__ = true;
 
-  const VERSION = '0.2.10';
+  const VERSION = '0.2.12';
   const LIMITS = { pageChars: 14000, mailChars: 12000, selectionChars: 4000, comptoserChars: 6000, walkBudget: 20000 };
 
   const NOISE_TAGS = new Set([
@@ -105,72 +105,41 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* focus: выбранное/открытое сообщение в треде                        */
+  /* open message / thread: только область чтения                        */
   /* ------------------------------------------------------------------ */
 
-  const MAIL_CARD_SELECTORS = {
-    gmail: 'div.adn.ads, [data-message-id], div[role="listitem"]',
-    outlook: '[role="article"], [data-automationid="MessageCard"], [data-convid], div[role="listitem"]',
-    yandex: '.mail-Message, .mail-Thread-Message, [data-testid*="message" i], [data-testid*="letter" i]',
-  };
-
-  let focusedMessageElement = null;
   let mailChangeTimer = null;
   let lastMailSignature = '';
 
-  /** Индекс выбранного сообщения среди nodes; fallback — развёрнутое/открытое; -1 = не найдено. */
-  function findFocusedIndex(nodes) {
-    if (!Array.isArray(nodes) || !nodes.length) return -1;
-    if (focusedMessageElement && document.contains(focusedMessageElement)) {
-      const index = nodes.findIndex(
-        (node) => node === focusedMessageElement || node.contains(focusedMessageElement) || focusedMessageElement.contains(node),
-      );
-      if (index >= 0) return index;
-    }
-    return nodes.findIndex((node) => {
-      if (!node || node.nodeType !== 1) return false;
-      if (node.getAttribute('aria-expanded') === 'true') return true;
+  /**
+   * openIndex — развёрнутое/открытое сообщение, иначе самое свежее (последнее)
+   * из видимых в reading pane. Никаких кликов/фокуса/picker.
+   */
+  function finalizeOpen(messages, nodes) {
+    const threadMessages = messages.slice(-6);
+    const offset = Math.max(0, messages.length - threadMessages.length);
+    let openIndex = -1;
+      for (let index = threadMessages.length - 1; index >= 0; index -= 1) {
+      const node = nodes[offset + index];
+      if (!node || node.nodeType !== 1) continue;
+      const expanded = node.getAttribute('aria-expanded') === 'true';
       const className = typeof node.className === 'string' ? node.className : '';
-      return /(?:^|[-_])(?:expanded|open)(?:$|[-_])/i.test(className);
-    });
-  }
-
-  /** focusIndex среди возвращаемых (последних 6) сообщений; если фокус не найден — последнее. */
-  function finalizeFocus(messages, nodes) {
-    const visible = messages.slice(-6);
-    const offset = Math.max(0, messages.length - visible.length);
-    const raw = findFocusedIndex(nodes);
-    const focusIndex = raw >= offset ? raw - offset : visible.length - 1;
-    const explicit = raw >= offset && raw >= 0;
-    const focusSource = !explicit
-      ? 'fallback'
-      : focusedMessageElement && document.contains(focusedMessageElement)
-        ? 'user'
-        : 'expanded';
+      if (
+        expanded ||
+        node.getAttribute('aria-current') === 'true' ||
+        /(?:^|[-_])(?:expanded|open|selected|active|current)(?:$|[-_])/i.test(className)
+      ) {
+        openIndex = index;
+        break;
+      }
+    }
+    if (openIndex < 0) openIndex = threadMessages.length - 1;
+    openIndex = Math.max(0, Math.min(threadMessages.length - 1, openIndex));
     return {
-      messages: visible,
-      focusIndex: Math.max(0, Math.min(visible.length - 1, focusIndex)),
-      focusSource,
+      threadMessages,
+      openIndex,
+      openMessage: threadMessages[openIndex] || null,
     };
-  }
-
-  function findFocusCard(target) {
-    const site = detectSite();
-    if (!site) return null;
-    let node = target && target.nodeType === 1 ? target : target && target.parentElement;
-    if (!node || typeof node.closest !== 'function') return null;
-    const card = node.closest(MAIL_CARD_SELECTORS[site]);
-    if (!card) return null;
-    // Клики в композере/редакторе не считаем выбором сообщения.
-    if (card.closest('[contenteditable="true"], .mail-Compose-Body')) return null;
-    return card;
-  }
-
-  function onMailPointer(event) {
-    const card = findFocusCard(event.target);
-    if (!card) return;
-    focusedMessageElement = card;
-    scheduleMailChangePush();
   }
 
   function isMailMutation(records) {
@@ -180,7 +149,9 @@
       const target = record.target && record.target.nodeType === 1 ? record.target : record.target && record.target.parentElement;
       if (!target || typeof target.closest !== 'function') continue;
       if (target.closest('[contenteditable="true"], .mail-Compose-Body')) continue;
-      if (target.closest(MAIL_CARD_SELECTORS[site]) || target.closest('[role="main"], main')) return true;
+      if (site === 'yandex' && target.closest(YANDEX_SIDEBAR_SELECTOR)) continue;
+      // Мутации внутри reading pane / карточек в main, без сайдбаров.
+      if (target.closest('[role="main"], main, .mail-MessageView, .mail-Thread, [data-message-id], [role="article"]')) return true;
     }
     return false;
   }
@@ -202,7 +173,14 @@
       return;
     }
     if (!mail || !Array.isArray(mail.messages) || !mail.messages.length) return;
-    const signature = [mail.subject, mail.messages.length, mail.focusIndex, (mail.participants || []).join('|')].join('::');
+    const open = mail.openMessage || {};
+    const signature = [
+      mail.subject,
+      mail.messages.length,
+      open.from,
+      open.time,
+      (mail.participants || []).join('|'),
+    ].join('::');
     if (signature === lastMailSignature) return;
     lastMailSignature = signature;
     try {
@@ -492,25 +470,28 @@
       if (!fallbackRoot) return null;
       const fallbackText = normalizeText(nodeToText(fallbackRoot)).slice(0, LIMITS.mailChars);
       if (!fallbackText) return null;
+      const fallbackMessage = { from: '', time: '', text: fallbackText, attachments: extractAttachments(fallbackRoot, 'gmail') };
       return {
         site: 'gmail',
         subject,
         participants: [],
-        messages: [{ from: '', time: '', text: fallbackText, attachments: extractAttachments(fallbackRoot, 'gmail') }],
-        focusIndex: 0,
-        focusSource: 'fallback',
+        messages: [fallbackMessage],
+        threadMessages: [fallbackMessage],
+        openMessage: fallbackMessage,
+        openIndex: 0,
         degraded,
         url: location.href,
       };
     }
-    const focused = finalizeFocus(messages, keptCards);
+    const finalized = finalizeOpen(messages, keptCards);
     return {
       site: 'gmail',
       subject,
       participants: [...new Set(participants)].slice(0, 10),
-      messages: focused.messages,
-      focusIndex: focused.focusIndex,
-      focusSource: focused.focusSource,
+      messages: finalized.threadMessages,
+      threadMessages: finalized.threadMessages,
+      openMessage: finalized.openMessage,
+      openIndex: finalized.openIndex,
       degraded,
       url: location.href,
     };
@@ -627,15 +608,16 @@
       entryCards.push(main);
     }
 
-    const focused = finalizeFocus(entries, entryCards);
+    const finalized = finalizeOpen(entries, entryCards);
     const participants = entries.map((e) => e.from).filter(Boolean);
     return {
       site: 'outlook',
       subject,
       participants: [...new Set(participants)].slice(0, 10),
-      messages: focused.messages,
-      focusIndex: focused.focusIndex,
-      focusSource: focused.focusSource,
+      messages: finalized.threadMessages,
+      threadMessages: finalized.threadMessages,
+      openMessage: finalized.openMessage,
+      openIndex: finalized.openIndex,
       degraded,
       url: location.href,
     };
@@ -670,6 +652,36 @@
     '[class*="message" i]',
     '[class*="thread" i]',
   ];
+
+  // Область чтения открытого письма (не список/не сайдбар).
+  const YANDEX_READING_PANE_SELECTORS = [
+    '.mail-MessageView',
+    '.mail-Message-View',
+    '.mail-Thread',
+    '.mail-Content',
+    '.mail-App-Content',
+    '[data-testid*="message-view" i]',
+    '[data-testid*="messageview" i]',
+    '[data-testid*="thread" i]',
+  ];
+
+  // Сайдбары/списки писем/сниппеты: их карточки — не сообщения треда.
+  const YANDEX_SIDEBAR_SELECTOR = [
+    '[class*="ThreadsList" i]',
+    '[class*="ThreadList" i]',
+    '[class*="thread-list" i]',
+    '[class*="MessageList" i]',
+    '[class*="Snippet" i]',
+    '[class*="Sidebar" i]',
+    '[role="complementary"]',
+    '[class*="letters" i]',
+    '[class*="LettersList" i]',
+    '[class*="related" i]',
+    '[class*="Related" i]',
+    '[class*="similar" i]',
+    '[class*="Similar" i]',
+    '[data-testid*="related" i]',
+  ].join(', ');
 
   const YANDEX_SENDER_SELECTORS = [
     '.mail-Message-Sender',
@@ -778,7 +790,7 @@
     }
   }
 
-  function yandexBodyElement(node) {
+  function yandexBodyElement(node, isVisible = null) {
     for (const selector of YANDEX_BODY_SELECTORS) {
       let elements;
       try {
@@ -787,9 +799,51 @@
         continue;
       }
       for (const element of elements) {
+        if (element.closest(YANDEX_SIDEBAR_SELECTOR)) continue;
+        if (isVisible && !isVisible(element)) continue;
         const value = element.innerText || element.textContent || '';
         if (value.trim().length >= 20) return element;
       }
+    }
+    return null;
+  }
+
+  /** Область чтения открытого письма: приоритет явным контейнерам, не document.body/layout. */
+  function yandexReadingPane(isVisible) {
+    const inSidebar = (node) => Boolean(node && node.closest && node.closest(YANDEX_SIDEBAR_SELECTOR));
+    const hasMessage = (node) => {
+      if (!node || typeof node.querySelector !== 'function') return false;
+      if (node.matches && node.matches('[class*="list" i], [role="list"]')) return false;
+      const body = Array.from(node.querySelectorAll('.mail-Message-Body, .mail-Message-Body-Content')).find(
+        (element) => isVisible(element) && !inSidebar(element),
+      );
+      if (body) return true;
+      return Array.from(node.querySelectorAll('.mail-Message, .mail-Thread-Message')).some(
+        (element) => isVisible(element) && !inSidebar(element),
+      );
+    };
+    for (const selector of YANDEX_READING_PANE_SELECTORS) {
+      let nodes;
+      try {
+        nodes = document.querySelectorAll(selector);
+      } catch {
+        continue;
+      }
+      for (const node of nodes) {
+        if (!isVisible(node) || inSidebar(node)) continue;
+        if (hasMessage(node)) return node;
+      }
+    }
+    const roleMain = document.querySelector('[role="main"]');
+    if (roleMain && isVisible(roleMain) && !inSidebar(roleMain) && hasMessage(roleMain)) return roleMain;
+    const visibleBody = Array.from(document.querySelectorAll('.mail-Message-Body, .mail-Message-Body-Content')).find(
+      (element) => isVisible(element) && !inSidebar(element),
+    );
+    if (visibleBody) {
+      const pane = visibleBody.closest(YANDEX_READING_PANE_SELECTORS.join(', '));
+      if (pane && isVisible(pane) && !inSidebar(pane)) return pane;
+      const paneMain = visibleBody.closest('[role="main"]');
+      if (paneMain && !inSidebar(paneMain)) return paneMain;
     }
     return null;
   }
@@ -804,6 +858,7 @@
       }
       for (const node of nodes) {
         if (!isVisible(node)) continue;
+        if (node.closest(YANDEX_SIDEBAR_SELECTOR)) continue;
         const value = text(node.innerText || node.textContent);
         if (value.length >= 2 && value.length <= 240) return value;
       }
@@ -823,6 +878,7 @@
       }
       for (const element of elements) {
         if (element.closest('.mail-Message-Body, .mail-Message-Body-Content')) continue;
+        if (element.closest('blockquote, [class*="quote" i], [class*="цитата" i]')) continue;
         if (element.closest(YANDEX_SNIPPET_SELECTOR)) continue;
         const owner = element.closest('.mail-Message, .mail-Thread-Message');
         if (owner && owner !== node) continue;
@@ -837,6 +893,7 @@
     const clone = node.cloneNode(true);
     for (const body of clone.querySelectorAll('.mail-Message-Body, .mail-Message-Body-Content')) body.remove();
     for (const nested of clone.querySelectorAll('.mail-Message, .mail-Thread-Message')) nested.remove();
+    for (const quoted of clone.querySelectorAll('blockquote, [class*="quote" i], [class*="цитата" i]')) quoted.remove();
     return normalizeText(nodeToText(clone)).slice(0, 1200);
   }
 
@@ -857,6 +914,9 @@
     if (kind === 'to') result = result.replace(/\s*(?:Тема|Subject)\s*:.*$/i, '').trim();
     if (!result || result.length < 2) return '';
     if (/^(?:я|вы|от|кому|to|from|sender|recipient|получатель)$/i.test(result)) return '';
+    // В шапке не должно быть цитатных полей/разделителей пересылки.
+    if (kind === 'sender' && /(?:^|\s)(?:кому|тема|subject|to)\s*:/i.test(result)) return '';
+    if (/^-{2,}|пересылаемое сообщение|forwarded message/i.test(result)) return '';
     return result.slice(0, 200);
   }
 
@@ -949,8 +1009,8 @@
       }
       for (const node of nodes) {
         if (!isVisible(node)) continue;
-        if (node.closest(YANDEX_SNIPPET_SELECTOR) || node.closest(YANDEX_QUOTED_SELECTOR)) continue;
-        if (!yandexBodyElement(node) && !extractYandexAttachments(node).length) continue;
+        if (node.closest(YANDEX_SNIPPET_SELECTOR) || node.closest(YANDEX_SIDEBAR_SELECTOR) || node.closest(YANDEX_QUOTED_SELECTOR)) continue;
+        if (!yandexBodyElement(node, isVisible) && !extractYandexAttachments(node).length) continue;
         bem.push(node);
       }
     }
@@ -971,7 +1031,7 @@
       }
       for (const node of nodes) {
         if (seen.has(node) || !isVisible(node)) continue;
-        if (node.closest(YANDEX_SNIPPET_SELECTOR) || node.closest(YANDEX_QUOTED_SELECTOR)) continue;
+        if (node.closest(YANDEX_SNIPPET_SELECTOR) || node.closest(YANDEX_SIDEBAR_SELECTOR) || node.closest(YANDEX_QUOTED_SELECTOR)) continue;
         const value = node.innerText || node.textContent || '';
         if (value.trim().length < minChars && !extractYandexAttachments(node).length) continue;
         seen.add(node);
@@ -986,7 +1046,7 @@
 
   function extractYandexThread() {
     const isVisible = makeVisibilityCache();
-    const main = document.querySelector('[role="main"], main, [class*="layout" i]') || document.body;
+    const main = yandexReadingPane(isVisible);
     if (!main) return null;
     const subject = yandexSubject(main, isVisible);
     const nodes = collectYandexMessageNodes(main, isVisible);
@@ -997,7 +1057,7 @@
       const sender = yandexSender(node);
       // BEM: тело — отдельный узел .mail-Message-Body; modern UI — весь card минус шапка.
       const attachments = extractYandexAttachments(node);
-      const bodyElement = yandexBodyElement(node);
+      const bodyElement = yandexBodyElement(node, isVisible);
       // Если тела нет, но есть вложения — не подставляем текст плашки как тело письма.
       const body = bodyElement ? cleanYandexBody(bodyElement) : attachments.length ? '' : cleanMailBody(node, YANDEX_HEADER_NOISE);
       if (!body && !attachments.length) continue;
@@ -1007,38 +1067,45 @@
     }
     if (messages.length) {
       const hasSender = messages.some((message) => message.from);
-      const focused = finalizeFocus(messages, keptNodes);
+      const focused = finalizeOpen(messages, keptNodes);
       return {
         site: 'yandex',
         subject,
         participants: [...new Set(participants)].slice(0, 10),
-        messages: focused.messages,
-        focusIndex: focused.focusIndex,
-        focusSource: focused.focusSource,
+        messages: focused.threadMessages,
+        threadMessages: focused.threadMessages,
+        openMessage: focused.openMessage,
+        openIndex: focused.openIndex,
         // Структура распознана не полностью, если нет темы или отправителя — честно помечаем.
         degraded: !subject || !hasSender,
         url: location.href,
       };
     }
-    // Fallback: весь регион как одно сообщение.
+    // Fallback: только область чтения как одно сообщение, без сайдбара/списков.
     // Логин-экран и пустой интерфейс не отдаём как «письмо»: в письме всегда есть адрес.
-    const paneText = normalizeText(nodeToText(main)).slice(0, LIMITS.mailChars);
+    const fallbackClone = main.cloneNode(true);
+    for (const sidebar of fallbackClone.querySelectorAll(YANDEX_SIDEBAR_SELECTOR)) sidebar.remove();
+    const paneText = normalizeText(nodeToText(fallbackClone)).slice(0, LIMITS.mailChars);
     if (!paneText || !/@/.test(paneText)) return null;
     const sender = (() => {
-      const mailto = main.querySelector('a[href^="mailto:"]');
+      const mailtos = Array.from(fallbackClone.querySelectorAll('a[href^="mailto:"]'));
+      const mailto = mailtos.find((element) => !element.closest(YANDEX_SIDEBAR_SELECTOR));
       if (mailto) return text(mailto.getAttribute('href').replace(/^mailto:/i, ''));
-      const withEmail = Array.from(main.querySelectorAll('[title*="@"], [aria-label*="@"]'))
+      const withEmail = Array.from(fallbackClone.querySelectorAll('[title*="@"], [aria-label*="@"]'))
+        .filter((element) => !element.closest(YANDEX_SIDEBAR_SELECTOR))
         .map((element) => text(element.getAttribute('title') || element.getAttribute('aria-label')))
         .find((value) => /@/.test(value));
       return withEmail || '';
     })();
+    const fallbackMessage = { from: sender, to: '', time: '', text: paneText, attachments: extractAttachments(main, 'yandex') };
     return {
       site: 'yandex',
       subject,
       participants: sender ? [sender] : [],
-      messages: [{ from: sender, to: '', time: '', text: paneText, attachments: extractAttachments(main, 'yandex') }],
-      focusIndex: 0,
-      focusSource: 'fallback',
+      messages: [fallbackMessage],
+      threadMessages: [fallbackMessage],
+      openMessage: fallbackMessage,
+      openIndex: 0,
       degraded: true,
       url: location.href,
     };
@@ -1536,10 +1603,7 @@
   /* boot                                                               */
   /* ------------------------------------------------------------------ */
 
-  // Выбор/фокус сообщения в треде + изменения DOM внутри писем.
-  document.addEventListener('click', onMailPointer, true);
-  document.addEventListener('focusin', onMailPointer, true);
-
+  // Изменения DOM внутри писем; клики/фокус/picker не используются.
   if (detectSite()) {
     mountLauncher();
     startLauncherObserver();

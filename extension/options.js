@@ -123,10 +123,6 @@ function applyForm(settings, profile) {
   el.signature.value = profile.prefs.signature;
   const address = document.querySelector(`input[name="address"][value="${profile.prefs.address}"]`);
   if (address) address.checked = true;
-  const replyContext = document.querySelector(
-    `input[name="replyContext"][value="${settings.replyContext === 'last' ? 'last' : 'thread'}"]`,
-  );
-  if (replyContext) replyContext.checked = true;
   el.replyInstruction.value = settings.replyInstruction;
 
   renderLearned();
@@ -138,7 +134,6 @@ function readForm() {
     ...state.settings,
     apiKey: el.apiKey.value.trim(),
     streaming: el.streaming.checked,
-    replyContext: readRadio('replyContext') === 'last' ? 'last' : 'thread',
     replyInstruction: el.replyInstruction.value,
     voice: {
       enabled: el.voiceEnabled.checked,

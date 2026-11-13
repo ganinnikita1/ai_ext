@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Почерк",
   "short_name": "Почерк",
-  "version": "0.2.10",
+  "version": "0.2.12",
   "description": "Помогает отвечать на письма в Gmail, Outlook и Яндекс Почте и разбирать страницы.",
   "minimum_chrome_version": "114",
   "icons": {

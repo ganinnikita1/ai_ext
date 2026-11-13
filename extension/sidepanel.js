@@ -56,9 +56,6 @@ const el = {
   contextIcon: $('context-icon'),
   contextKind: $('context-kind'),
   contextTitle: $('context-title'),
-  contextScope: $('context-scope'),
-  messagePicker: $('message-picker'),
-  messageSelect: $('message-select'),
   messageMeta: $('message-meta'),
   contextRemove: $('btn-context-remove'),
   contextRefresh: $('btn-context-refresh'),
@@ -69,6 +66,7 @@ const el = {
   btnExplain: $('btn-explain'),
   btnReply: $('btn-reply'),
   btnSummary: $('btn-summary'),
+  btnSummaryThread: $('btn-summary-thread'),
   drawer: $('drawer'),
   drawerBackdrop: $('drawer-backdrop'),
   drawerClose: $('btn-drawer-close'),
@@ -92,8 +90,7 @@ const state = {
   demo: true,
   mailAvailable: false,
   accessError: null,
-  mailSelectionKey: null,
-  mailSelectionExplicit: false,
+  analysisScope: 'open',
   theme: 'auto',
   voice: {
     recognition: null,
@@ -422,98 +419,71 @@ function mailSelectionKeyFor(message) {
   return `${String(message.from || '').slice(0, 120)}|${String(message.time || '').slice(0, 60)}`;
 }
 
-/** Нормализует focusIndex с учётом явного выбора в панели; выбор пропадает вместе с сообщением. */
-function mailWithSelectedFocus(mail) {
-  if (!mail || !Array.isArray(mail.messages) || !mail.messages.length) return mail;
-  const count = mail.messages.length;
-  let index = -1;
-  if (state.mailSelectionKey) {
-    index = mail.messages.findIndex((message) => mailSelectionKeyFor(message) === state.mailSelectionKey);
-    if (index < 0) {
-      state.mailSelectionKey = null;
-      state.mailSelectionExplicit = false;
-    }
-  }
-  if (index < 0) {
-    const raw = Number.isInteger(mail.focusIndex) ? mail.focusIndex : count - 1;
-    index = raw >= 0 && raw < count ? raw : count - 1;
-  }
-  return { ...mail, focusIndex: index };
-}
-
-function pickerSenderLabel(value) {
+function senderLabel(value) {
   const raw = String(value || '').replace(/\s+/g, ' ').trim();
   if (!raw) return '';
   const withoutEmail = raw.replace(/<[^>]*>/g, '').trim();
-  return truncate(withoutEmail || raw, 34);
+  return truncate(withoutEmail || raw, 40);
+}
+
+function openMessageOf(mail) {
+  if (!mail || typeof mail !== 'object') return null;
+  const all = Array.isArray(mail.threadMessages)
+    ? mail.threadMessages
+    : Array.isArray(mail.messages)
+      ? mail.messages
+      : [];
+  return (
+    mail.openMessage ||
+    (Number.isInteger(mail.openIndex) ? all[mail.openIndex] : null) ||
+    all[all.length - 1] ||
+    null
+  );
+}
+
+function openOnlyMail(mail) {
+  const open = openMessageOf(mail);
+  if (!open) return mail;
+  return { ...mail, messages: [open], threadMessages: [open], openMessage: open, openIndex: 0 };
 }
 
 function renderMessageMeta() {
   const context = state.context;
   const mail = context && context.kind === 'mail' ? context.mail : null;
-  const messages = mail && Array.isArray(mail.messages) ? mail.messages : [];
-  if (!mail || !messages.length) {
+  if (!mail) {
     el.messageMeta.hidden = true;
     el.messageMeta.textContent = '';
     return;
   }
-  const scope = state.settings.replyContext === 'thread' ? 'thread' : 'last';
-  if (scope === 'thread') {
-    const attachmentNames = new Set();
-    for (const message of messages) {
-      for (const name of Array.isArray(message.attachments) ? message.attachments : []) attachmentNames.add(name);
-    }
-    el.messageMeta.hidden = false;
-    el.messageMeta.textContent = `Вся переписка · ${messages.length} писем · вложения: ${attachmentNames.size || 'нет'}`;
-    return;
-  }
-  const index = Number.isInteger(mail.focusIndex)
-    ? Math.min(Math.max(mail.focusIndex, 0), messages.length - 1)
-    : messages.length - 1;
-  const message = messages[index] || {};
-  const from = pickerSenderLabel(message.from);
-  const time = message.time ? ` · ${truncate(message.time, 30)}` : '';
-  const count = Array.isArray(message.attachments) ? message.attachments.length : 0;
+  const available = Array.isArray(mail.threadMessages)
+    ? mail.threadMessages
+    : Array.isArray(mail.messages)
+      ? mail.messages
+      : [];
   el.messageMeta.hidden = false;
-  el.messageMeta.textContent = `От: ${from || 'не определён'}${time} · ${count ? `вложения: ${count}` : 'без вложений'}`;
-}
-
-function renderMessagePicker() {
-  const context = state.context;
-  const mail = context && context.kind === 'mail' ? context.mail : null;
-  const messages = mail && Array.isArray(mail.messages) ? mail.messages : [];
-  const scope = state.settings.replyContext === 'thread' ? 'thread' : 'last';
-  if (!mail || messages.length < 2 || scope !== 'last') {
-    el.messagePicker.hidden = true;
+  if (state.analysisScope === 'thread' && available.length) {
+    const parts = available.slice(0, 8).map((message, index) => {
+      const from = senderLabel(message.from) || `Сообщение ${index + 1}`;
+      const time = message.time ? ` ${truncate(message.time, 24)}` : '';
+      return `${from}${time}`;
+    });
+    el.messageMeta.textContent = `Переписка (${available.length}): ${parts.join(' · ')}`;
     return;
   }
-  const selected = Number.isInteger(mail.focusIndex)
-    ? Math.min(Math.max(mail.focusIndex, 0), messages.length - 1)
-    : messages.length - 1;
-  el.messagePicker.hidden = false;
-  el.messageSelect.textContent = '';
-  messages.forEach((message, index) => {
-    const option = document.createElement('option');
-    option.value = String(index);
-    const from = pickerSenderLabel(message.from);
-    const attachmentName = Array.isArray(message.attachments) && message.attachments[0] ? message.attachments[0] : '';
-    const textPreview = String(message.text || '').replace(/\s+/g, ' ').trim();
-    // Без отправителя показываем превью/вложение, а не безликую «Письмо N».
-    const label = from || truncate(attachmentName || textPreview, 48) || `Письмо ${index + 1}`;
-    const time = message.time ? ` · ${truncate(message.time, 26)}` : '';
-    const last = index === messages.length - 1 ? ' · последнее' : '';
-    option.textContent = `${index + 1} · ${label}${time}${last}`;
-    el.messageSelect.appendChild(option);
-  });
-  el.messageSelect.value = String(selected);
+  const open = openMessageOf(mail) || {};
+  const from = senderLabel(open.from);
+  const time = open.time ? ` · ${truncate(open.time, 30)}` : '';
+  const count = Array.isArray(open.attachments) ? open.attachments.length : 0;
+  const more = available.length > 1 ? ` · всего: ${available.length}` : '';
+  el.messageMeta.textContent = `Открытое письмо · ${from || 'отправитель не определён'}${time} · ${
+    count ? `вложения: ${count}` : 'без вложений'
+  }${more}`;
 }
 
 function renderContextBar() {
   const context = state.context;
   if (!context) {
     el.contextBar.hidden = true;
-    el.contextScope.hidden = true;
-    renderMessagePicker();
     renderMessageMeta();
     return;
   }
@@ -522,42 +492,28 @@ function renderContextBar() {
   el.contextIcon.setAttribute('href', context.kind === 'mail' ? '#i-mail' : context.kind === 'selection' ? '#i-sparkles' : '#i-page');
   el.contextKind.textContent = context.kind === 'mail' ? 'Письмо' : context.kind === 'selection' ? 'Выделение' : 'Страница';
   el.contextTitle.textContent = contextTitleText(context);
-  const mail = context.kind === 'mail' ? context.mail : null;
-  const messages = mail && Array.isArray(mail.messages) ? mail.messages : [];
-  if (messages.length > 1) {
-    const scope = state.settings.replyContext === 'thread' ? 'thread' : 'last';
-    const focusIndex = Number.isInteger(mail.focusIndex) ? mail.focusIndex : messages.length - 1;
-    const focused = messages[Math.min(Math.max(focusIndex, 0), messages.length - 1)];
-    const explicit = state.mailSelectionExplicit || mail.focusSource === 'user';
-    el.contextScope.hidden = false;
-    el.contextScope.textContent =
-      scope === 'thread' ? 'вся переписка' : explicit ? 'выбрано' : focusIndex === messages.length - 1 ? 'последнее' : 'открыто';
-    el.contextScope.title = `Сообщение ${focusIndex + 1} из ${messages.length}${
-      focused && focused.from ? ` · ${truncate(focused.from, 80)}` : ''
-    }`;
-  } else {
-    el.contextScope.hidden = true;
-  }
-  renderMessagePicker();
   renderMessageMeta();
 }
 
 function setContext(context) {
-  const next = context && typeof context === 'object' ? context : null;
-  state.context =
-    next && next.kind === 'mail' && next.mail ? { ...next, mail: mailWithSelectedFocus(next.mail) } : next;
+  state.context = context && typeof context === 'object' ? context : null;
+  if (state.context && state.context.kind === 'mail') state.analysisScope = 'open';
   renderContextBar();
   updateQuickActions();
 }
-
 function updateQuickActions() {
   const hasMail = !!(state.context && state.context.kind === 'mail') || state.mailAvailable;
+  el.btnReply.hidden = !hasMail;
+  el.btnSummary.hidden = !hasMail;
+  el.btnSummaryThread.hidden = !hasMail;
+  el.btnExplain.hidden = hasMail;
   el.btnReply.disabled = !hasMail || state.busy;
   el.btnSummary.disabled = !hasMail || state.busy;
+  el.btnSummaryThread.disabled = !hasMail || state.busy;
   el.btnExplain.disabled = state.busy;
-  // Пустой стейт: та же кнопка «Разобрать письмо…» должна включаться синхронно.
-  const mailSuggestion = el.chat.querySelector('.suggestion[data-suggestion="mail"]');
-  if (mailSuggestion) mailSuggestion.disabled = !hasMail || state.busy;
+  for (const suggestion of el.chat.querySelectorAll('.suggestion[data-suggestion="mail"]')) {
+    suggestion.disabled = !hasMail || state.busy;
+  }
 }
 
 function delay(ms) {
@@ -697,11 +653,17 @@ function renderEmptyState() {
   const list = document.createElement('div');
   list.className = 'suggestions';
 
-  const suggestions = [
-    { icon: '#i-page', label: 'Объяснить эту страницу', run: () => explainPage() },
-    { icon: '#i-mail', label: 'Разобрать письмо и предложить ответ', run: () => generateReply(), mail: true, disabled: !state.mailAvailable },
-    { icon: '#i-sparkles', label: 'Что важного в этом тексте?', run: () => sendChat('Что важного в этом тексте?') },
-  ];
+  const suggestions = [];
+  if (state.mailAvailable) {
+    suggestions.push(
+      { icon: '#i-mail', label: 'Разобрать письмо', run: () => generateSummary('open'), mail: true, disabled: !state.mailAvailable },
+      { icon: '#i-mail', label: 'Разобрать всю переписку', run: () => generateSummary('thread'), mail: true, disabled: !state.mailAvailable },
+      { icon: '#i-mail', label: 'Ответить на письмо', run: () => generateReply(), mail: true, disabled: !state.mailAvailable },
+    );
+  } else {
+    suggestions.push({ icon: '#i-page', label: 'Объяснить эту страницу', run: () => explainPage() });
+  }
+  suggestions.push({ icon: '#i-sparkles', label: 'Что важного в этом тексте?', run: () => sendChat('Что важного в этом тексте?') });
   if (state.demo) {
     suggestions.push({ icon: '#i-sparkles', label: 'Показать демо-ответ', run: () => sendChat('Покажи на примере, как ты помогаешь с письмом') });
   }
@@ -1324,12 +1286,12 @@ async function insertTextIntoPage(text) {
       return false;
     }
     const expectedMail = state.context.mail;
-    const expectedMessages = Array.isArray(expectedMail.messages) ? expectedMail.messages : [];
-    const expectedIndex = Number.isInteger(expectedMail.focusIndex)
-      ? Math.min(Math.max(expectedMail.focusIndex, 0), Math.max(0, expectedMessages.length - 1))
-      : expectedMessages.length - 1;
-    const expectedMessage = expectedMessages[expectedIndex] || {};
-    const actualMessages = Array.isArray(fresh.mail.messages) ? fresh.mail.messages : [];
+    const expectedMessage = openMessageOf(expectedMail) || {};
+    const actualMessages = Array.isArray(fresh.mail.threadMessages)
+      ? fresh.mail.threadMessages
+      : Array.isArray(fresh.mail.messages)
+        ? fresh.mail.messages
+        : [];
     const expectedKey = mailSelectionKeyFor(expectedMessage);
     const fromFound = Boolean(expectedKey) && actualMessages.some((message) => mailSelectionKeyFor(message) === expectedKey);
     const expectedSubject = String(expectedMail.subject || '');
@@ -1426,15 +1388,6 @@ async function resolveMail() {
     return { mail: state.context.mail, stale: true, error: res };
   }
   return { error: res };
-}
-
-function focusScopedMail(mail) {
-  if (!mail || !Array.isArray(mail.messages) || !mail.messages.length) return mail;
-  if (state.settings.replyContext === 'thread') return mail;
-  if (mail.messages.length === 1) return { ...mail, focusIndex: 0 };
-  const focusIndex = Number.isInteger(mail.focusIndex) ? mail.focusIndex : mail.messages.length - 1;
-  const index = focusIndex >= 0 && focusIndex < mail.messages.length ? focusIndex : mail.messages.length - 1;
-  return { ...mail, messages: [mail.messages[index]], focusIndex: 0 };
 }
 
 function styleHints() {
@@ -1544,8 +1497,12 @@ async function sendChat(question) {
       toast('Контекст письма устарел — обновите страницу или панель и повторите.', true);
       return;
     }
-    if (mail.mail) context = { kind: 'mail', mail: focusScopedMail(mail.mail) };
+    if (mail.mail) context = { kind: 'mail', mail: openOnlyMail(mail.mail) };
     else accessError = mail.error && mail.error.reason;
+    if (context) {
+      state.analysisScope = 'open';
+      renderMessageMeta();
+    }
   } else {
     const page = await resolvePage();
     if (page.page) context = { kind: 'page', page: page.page };
@@ -1592,7 +1549,7 @@ async function sendChat(question) {
     context,
     styleHints: styleHints(),
     history,
-    contextScope: state.settings.replyContext === 'thread' ? 'thread' : 'last',
+    scope: 'open',
   });
   await executeTask(task, { kind: 'chat', action });
 }
@@ -1651,6 +1608,8 @@ async function generateReply(intent = '') {
     toast('Контекст письма устарел — обновите страницу или панель и повторите.', true);
     return;
   }
+  state.analysisScope = 'open';
+  renderMessageMeta();
   const userMessage = {
     id: uid('msg'),
     role: 'user',
@@ -1668,20 +1627,18 @@ async function generateReply(intent = '') {
   const action = { name: 'reply', intent };
   state.lastAction = action;
   const settings = state.settings;
-  const contextScope = settings.replyContext === 'last' ? 'last' : 'thread';
-  const mail = focusScopedMail(mailResult.mail);
+  const mail = openOnlyMail(mailResult.mail);
   const task = buildReplyTask({
     mail,
     styleHints: styleHints(),
     variants: 3,
     intent,
     instruction: settings.replyInstruction,
-    contextScope,
   });
   await executeTask(task, { kind: 'reply', variantMode: true, action });
 }
 
-async function generateSummary() {
+async function generateSummary(scope = 'open') {
   if (state.busy) return;
   const mailResult = await resolveMail();
   if (!mailResult.mail) {
@@ -1693,11 +1650,23 @@ async function generateSummary() {
     toast('Контекст письма устарел — обновите страницу или панель и повторите.', true);
     return;
   }
-  const contextScope = state.settings.replyContext === 'thread' ? 'thread' : 'last';
+  const mode = scope === 'thread' ? 'thread' : 'open';
+  const available = Array.isArray(mailResult.mail.threadMessages)    ? mailResult.mail.threadMessages
+    : Array.isArray(mailResult.mail.messages)
+      ? mailResult.mail.messages
+      : [];
+  if (mode === 'thread' && available.length <= 1) {
+    toast(
+      'В переписке доступен 1 фрагмент. Чтобы учесть всю цепочку, нажмите «Открыть всю переписку» и повторите.',
+      true,
+    );
+  }
+  state.analysisScope = mode;
+  renderMessageMeta();
   const userMessage = {
     id: uid('msg'),
     role: 'user',
-    content: contextScope === 'last' ? 'Разбери выбранное письмо' : 'Разбери переписку',
+    content: mode === 'open' ? 'Разбери открытое письмо' : 'Разбери всю доступную переписку',
     ts: Date.now(),
     meta: {},
   };
@@ -1708,9 +1677,10 @@ async function generateSummary() {
   el.chat.appendChild(view.root);
   scrollToBottom(true);
 
-  const action = { name: 'summary' };
+  const action = { name: 'summary', scope: mode };
   state.lastAction = action;
-  const task = buildSummaryTask({ mail: focusScopedMail(mailResult.mail), styleHints: styleHints(), contextScope });
+  const taskMail = mode === 'open' ? openOnlyMail(mailResult.mail) : mailResult.mail;
+  const task = buildSummaryTask({ mail: taskMail, styleHints: styleHints(), scope: mode });
   await executeTask(task, { kind: 'summary', action });
 }
 
@@ -1719,7 +1689,7 @@ function runAction(action) {
   if (action.name === 'chat') return sendChat(action.question);
   if (action.name === 'explain') return explainPage(action.question || '');
   if (action.name === 'reply') return generateReply(action.intent || '');
-  if (action.name === 'summary') return generateSummary();
+  if (action.name === 'summary') return generateSummary(action.scope || 'open');
   return undefined;
 }
 
@@ -2045,7 +2015,8 @@ function bindEvents() {
   el.send.addEventListener('click', () => resizeInput());
   el.btnExplain.addEventListener('click', () => explainPage());
   el.btnReply.addEventListener('click', () => generateReply());
-  el.btnSummary.addEventListener('click', () => generateSummary());
+  el.btnSummary.addEventListener('click', () => generateSummary('open'));
+  el.btnSummaryThread.addEventListener('click', () => generateSummary('thread'));
   el.btnNew.addEventListener('click', newChat);
   el.btnHistory.addEventListener('click', () => (el.drawer.hidden ? openDrawer() : closeDrawer()));
   el.drawerClose.addEventListener('click', closeDrawer);
@@ -2063,19 +2034,6 @@ function bindEvents() {
   el.contextRemove.addEventListener('click', () => {
     setContext(null);
     toast('Контекст убран');
-  });
-  el.messageSelect.addEventListener('change', () => {
-    const context = state.context;
-    const mail = context && context.kind === 'mail' ? context.mail : null;
-    if (!mail || !Array.isArray(mail.messages)) return;
-    const index = Number(el.messageSelect.value);
-    if (!Number.isInteger(index) || index < 0 || index >= mail.messages.length) return;
-    state.mailSelectionKey = mailSelectionKeyFor(mail.messages[index]);
-    state.mailSelectionExplicit = true;
-    state.context = { ...context, mail: { ...mail, focusIndex: index } };
-    renderContextBar();
-    renderMessagePicker();
-    updateQuickActions();
   });
   el.contextRefresh.addEventListener('click', async () => {
     state.context = null;
@@ -2115,13 +2073,8 @@ function bindEvents() {
       }
     }
     if (message.type === 'MAIL_CONTEXT_CHANGED' && message.mail && Array.isArray(message.mail.messages) && message.mail.messages.length) {
-      // SPA: пользователь выбрал другое сообщение/открыл другое письмо при открытой панели.
+      // SPA: открытое письмо сменилось — обновляем контекст.
       if (state.context && state.context.kind === 'selection') return;
-      if (message.mail.focusSource === 'user') {
-        // Клик по сообщению в странице — явный выбор, он важнее выбора в панели.
-        state.mailSelectionKey = null;
-        state.mailSelectionExplicit = false;
-      }
       state.mailAvailable = true;
       setContext({ kind: 'mail', mail: message.mail, title: message.mail.subject || 'Письмо', site: message.mail.site });
       updateQuickActions();
@@ -2138,7 +2091,6 @@ function bindEvents() {
       refreshVoiceUi();
       refreshProviderState();
       renderContextBar();
-      renderMessagePicker();
     }
     if (changes[STORAGE_KEYS.profile]) {
       state.profile = normalizeProfile(changes[STORAGE_KEYS.profile].newValue);

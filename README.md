@@ -1,6 +1,6 @@
 # AI Bro — AI-помощник для ответов и разбора сообщений
 
-*Сводка проекта. Версия 0.2.17 · Chrome + Edge (Chromium / Manifest V3).*
+*Сводка проекта. Версия 0.2.18 · Chrome + Edge (Chromium / Manifest V3).*
 **Репозиторий:** <https://github.com/ganinnikita1/ai_ext> · **Публикация:** [docs/CHROME-WEB-STORE.md](docs/CHROME-WEB-STORE.md)
 
 AI Bro — расширение с боковой панелью, в которой **одно большое поле для вставки текста** и три кнопки:
@@ -91,12 +91,12 @@ browser-ai-copilot/
    ├─ options.html/js/css        API-ключ DeepSeek, стиль, голос, приватность
    ├─ lib/                       LLM-клиент (thinking high), промпты, demo, стиль
    ├─ icons/                     иконки 16/32/48/128 (монограмма AB)
-   ├─ package.ps1                сборка zip → dist/aibro-0.2.17.zip
+   ├─ package.ps1                сборка zip → dist/aibro-0.2.18.zip
    └─ README.md                  инструкция и ограничения
 ```
 
 Сборка: `powershell -ExecutionPolicy Bypass -File .\extension\package.ps1` →
-`extension/dist/aibro-0.2.17.zip`.
+`extension/dist/aibro-0.2.18.zip`.
 
 ---
 
@@ -116,7 +116,7 @@ browser-ai-copilot/
 
 | Этап | Что делаем | Статус |
 |---|---|---|
-| **MVP** | большая textarea, 3 кнопки, DeepSeek flash + high, BYOK, демо-режим, вставка в композер, стиль, голос | готово (0.2.17) |
+| **MVP** | большая textarea, 3 кнопки, DeepSeek flash + high, BYOK, демо-режим, вставка в композер, стиль, голос | готово (0.2.18) |
 | **Бета** | живой QA трёх почтовых клиентов, clipboard/iframe, e2e-тесты, latency high | в работе |
 | **Стор** | privacy URL, data-use, скриншоты 1280×800, $5 аккаунт, Submit | подготовлено, нужен живой QA |
 
@@ -127,7 +127,7 @@ browser-ai-copilot/
 
 ## 7. Публикация в Chrome Web Store (коротко)
 
-1. `extension/dist/aibro-0.2.17.zip` → кабинет <https://chrome.google.com/webstore/devconsole> (аккаунт $5).
+1. `extension/dist/aibro-0.2.18.zip` → кабинет <https://chrome.google.com/webstore/devconsole> (аккаунт $5).
 2. Заполнить листинг: тексты/обоснование прав — [docs/store-listing.md](docs/store-listing.md); скриншоты
    1280×800 — [docs/store/](docs/store/); политика — [docs/privacy-policy.md](docs/privacy-policy.md)
    (опубликовать на GitHub Pages и вставить URL).

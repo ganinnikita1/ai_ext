@@ -1501,6 +1501,7 @@ function stopVoice() {
     const full = voice.baseText ? `${voice.baseText} ${finalText}` : finalText;
     el.input.value = full;
     resizeInput();
+    updateSendState();
   }
   if (state.settings.voice.autoSend && finalText) {
     const text = el.input.value.trim();
@@ -1561,6 +1562,7 @@ function startVoice() {
     const composed = [voice.baseText, `${finalText}${interimText}`.trim()].filter(Boolean).join(' ');
     el.input.value = composed;
     resizeInput();
+    updateSendState();
     setVoiceStatus(`Слушаю… ${voiceLangLabel()}`);
     resetVoiceSilenceTimer();
   };

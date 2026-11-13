@@ -2,7 +2,7 @@
 
 Документ для инженерного ревью, стора и следующего шага разработки. Кодовый скелет —
 `browser-ai-copilot/extension`, продуктовый концепт — `browser-ai-copilot/proposals/inventor/concept.md`.
-Название продукта: **AI Bro**, версия скелета 0.2.15.
+Название продукта: **AI Bro**, версия скелета 0.2.16.
 
 ## 1. Границы этого этапа
 
@@ -35,10 +35,10 @@
 1. Регистрация `side_panel` в `edge://extensions` → «Открыть боковую панель» (Side panel).
 2. `sidePanel.setPanelBehavior({openPanelOnActionClick:true})` — открывается ли панель по клику на иконку.
 3. `sidePanel.open()` из контекстного меню и по `Ctrl+Shift+Y` — панель должна открыться в текущем окне.
-4. Контекстное меню на выделении: текст доезжает до панели (`CONTEXT_PUSH`).
-5. `chrome.scripting.executeScript` на обычной странице (activeTab) и на Gmail/Outlook.
-6. Чтение треда и вставка в композер на `outlook.live.com`/`outlook.office.com` и на `mail.yandex.ru`
-   (вёрстка отличается; для Яндекса — best-effort, см. раздел 7).
+4. Права запрашиваются по действию пользователя; контекстное меню не читает страницу.
+5. `chrome.scripting.executeScript` только для вставки ответа (activeTab, Gmail/Outlook).
+6. Вставка ответа в композер на `outlook.live.com`/`outlook.office.com` и на `mail.yandex.ru`
+   (вёрстка отличается; авто-чтение отключено, см. раздел 7).
 7. Плавающая кнопка «AI Bro» на почте: не перекрывает кнопку «Написать», не исчезает при SPA-навигации.
 8. `chrome.permissions.request` для домена провайдера и `chrome.permissions.remove` в настройках.
 9. Web Speech API (`ru-RU`, автостоп, запрет микрофона) и `chrome.storage.local` в Edge-профиле.
@@ -70,12 +70,12 @@ DeepSeek; localhost-хосты не используются, провайдер
 | Разрешение | Зачем | Почему не шире | Формулировка для ревью |
 | --- | --- | --- | --- |
 | `storage` | настройки, ключ, история чатов, профиль стиля | не используется `sync`, данные не покидают профиль | «Хранит настройки и историю локально» |
-| `activeTab` | чтение текущей вкладки по действию пользователя (иконка/команда/меню) | нет постоянного доступа ко всем вкладкам | «Доступ к странице только после действия пользователя» |
-| `scripting` | инжект `content.js` по требованию на произвольные страницы | инжектим только по клику, не на все сайты | «Извлекает текст активной страницы по запросу» |
+| `activeTab` | вставка ответа в текущую вкладку по действию пользователя | страницы не читаются | «Вставка в композер только после действия пользователя» |
+| `scripting` | инжект `content.js` по требованию для `INSERT_TEXT` | инжектим только по действию; контент не читаем | «Вставляет ответ в письмо по запросу» |
 | `sidePanel` | UI в боковой панели | — | «Показывает интерфейс ассистента» |
-| `contextMenus` | пункты «Спросить AI про выделенное» и «AI Bro: разобрать страницу» | — | «Добавляет два пункта меню» |
+| `contextMenus` | пункты меню (могут быть удалены; авто-контекст не используется) | — | «Открывает панель» |
 | `optional_host_permissions` | чтение произвольной страницы по кнопке (activeTab/scripting) и fetch к DeepSeek | `https://*/*` нужен для инъекции на сайт по действию пользователя; localhost не используется | «Доступ к сайту только после действия пользователя; запросы к DeepSeek» |
-| `content_scripts` (20 доменов) | плавающая кнопка и чтение открытого письма **без** клика | Gmail, Outlook Web (3) и Яндекс Почта/360 (16 зеркал `mail.yandex.*`, `mail.360.yandex.*`); `<all_urls>` нет | «Читает открытое письмо на Gmail, Outlook Web и Яндекс Почте» |
+| `content_scripts` (20 доменов) | плавающая кнопка «AI Bro» (только открыть панель) | Gmail, Outlook Web и Яндекс Почта/360; `<all_urls>` нет | «Кнопка открывает панель; письма не читаются» |
 
 Компромисс: декларативный контент-скрипт на почте даёт предупреждение установки о доступе к этим
 доменам, зато кнопка появляется сразу. Альтернатива — инжект по требованию на каждый заход — ломает UX
@@ -85,71 +85,55 @@ DeepSeek; localhost-хосты не используются, провайдер
 ## 4. Компоненты и потоки данных
 
 ```
-                         ┌──────────────────────────── sidepanel.html/js ───────────────────────────┐
-                         │ чат, история, варианты, вставка, обучение стилю, голос (Web Speech API)  │
-                         │ lib/llm-client.js → fetch(SSE / NDJSON) → провайдер пользователя         │
-                         └───────────────▲──────────────────────────────┬───────────────────────────┘
-                                         │ runtime.sendMessage           │ tabs.sendMessage
-                                         │ (GET_ACTIVE_TAB, ENSURE_      │ (GET_PAGE, GET_MAIL,
-                                         │  CONTENT, CONTEXT_PUSH,       │  GET_SELECTION, INSERT_TEXT,
-                                         │  GET_PENDING_CONTEXT)         │  GET_COMPOSER)
-┌──────────────────────┐      contextMenus/commands/action      ┌───────▼──────────────────────────┐
-│ browser action,      │ ───────────────────────────────────────▶│ background.js (service worker)   │
-│ commands, context    │                                         │ sidePanel, меню, инжект, маршрут │
-│ menu                 │                                         │ chrome.storage.session (pending) │
-└──────────────────────┘                                         └───────▲──────────────────────────┘
-                                                                         │ activeTab + scripting
-                                                         ┌───────────────▼──────────────────┐
-                                                         │ content.js (страница, Gmail,     │
-                                                         │ Outlook): извлечение текста,     │
-                                                         │ тред, композер, плавающая кнопка │
-                                                         └───────────────▲──────────────────┘
-                                                                         │ никто не отправляет письмо
-                                                                  ┌──────┴──────┐
-                                                                  │ веб-страница│
-                                                                  └─────────────┘
+┌────────────────────────── sidepanel.html/js ──────────────────────────┐
+│ большая textarea «Вставьте текст» + история/варианты/вставка/голос    │
+│ lib/llm-client.js → fetch(SSE/NDJSON) → DeepSeek                       │
+└───────────────▲──────────────────────────────┬────────────────────────┘
+                │ runtime.sendMessage            │ tabs.sendMessage
+                │ (GET_ACTIVE_TAB, ENSURE_       │ (INSERT_TEXT,
+                │  CONTENT)                      │  GET_COMPOSER, PING)
+┌───────────────┴──────────────────────────────▼────────────────────────┐
+│ background.js: sidePanel, меню, инжект content script                 │
+│ content.js: только плавающая кнопка + вставка в композер              │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
-Поток «ответ на письмо»: панель → `GET_ACTIVE_TAB` → `ENSURE_CONTENT` → `GET_MAIL` (перечитывается перед каждым действием; content script шлёт `MAIL_CONTEXT_CHANGED` при смене открытого письма, debounce 1.5 с) →
-`lib/prompts.buildReplyTask` (тред оборачивается как недоверенные данные) → `llm-client` →
-стрим → парсер вариантов → карточки → `INSERT_TEXT` в композер → пользователь правит и отправляет. Кнопка панели — «Спросить» (не отправка письма); quickbar: «Ответить на письмо», «Краткая сводка», «Разобрать письмо», «Разобрать всю переписку»; вставка идёт только выбранным вариантом; демо-дисклеймер показывается отдельным UI-notice и не попадает в тело.
-Промпты: content script отдаёт `openMessage` (открытое письмо) и `threadMessages` (все сообщения reading pane);
-`formatMailForPrompt({scope:'open'|'thread'})` для open берёт только `openMessage`, для thread — все
-`threadMessages`; reply всегда open; summary/chat scope задаёт кнопка; `buildSummaryTask({brief:true})` — краткая сводка (3–5 пунктов) по open; анти-галлюцинации (Адресат/Вложения) сохранены. Поле «Вставьте сообщение» (manual) приоритетнее страницы: все действия идут по псевдо-mail `{manual:true, subject:'Своё сообщение', openMessage:{text: manualText}}`, авто-контекст читается только при пустом поле; лимит 12 000 знаков.
+Поток: пользователь вставляет текст в большую ячейку → кнопка («Ответить на письмо» / «Краткая сводка» /
+«Разобрать письмо» / «Разобрать всю переписку») → `manualMail()` → `lib/prompts` (текст как недоверенные
+данные) → `llm-client` → стрим → карточки; для ответа — `INSERT_TEXT` в композер. Панель не вызывает
+`GET_MAIL`/`GET_PAGE`, не читает reading pane/сайдбары и не строит context bar. Пустая textarea → toast
+«Вставьте текст письма/переписки в поле выше и нажмите кнопку» без запросов к контенту.
+
+Промпты manual-only: псевдо-mail `{site:'manual', manual:true, subject:'Своё сообщение', openMessage:{text}}`;
+`scope:'open'` — разбор одного вставленного текста, `scope:'thread'` — весь вставленный текст как переписка;
+`buildSummaryTask({brief:true})` — краткая сводка (3–5 пунктов). Имя адресата не выдумывается;
+анти-галлюцинации сохранены. Лимит — 12 000 знаков.
 
 ### Формат сообщений
 
-Все сообщения — объекты с полем `type`; для контент-скрипта обязателен `target: "content"`.
-Ответы асинхронные (`sendResponse`), ошибки — `{ok:false, reason}`.
-
 ```
-sidepanel → background : {type:"GET_ACTIVE_TAB"} → {ok, tab:{id,url,title,isMail,restricted}}
-sidepanel → background : {type:"ENSURE_CONTENT", tabId} → {ok, injected, isMail, reason}
-sidepanel → background : {type:"GET_PENDING_CONTEXT", clear} → {ok, context|null}
-background → sidepanel : {type:"CONTEXT_PUSH", context} | {type:"CONTEXT_PUSH", requestPage:true}
-content → background   : {type:"AI_COPILOT_FROM_PAGE", payload:{kind,text,mail,page,site}}
-sidepanel → content    : {target:"content", type:"GET_PAGE"|"GET_MAIL"|"GET_SELECTION"|
-                          "INSERT_TEXT"|"GET_COMPOSER"|"PING"}
+sidepanel → background : {type:"GET_ACTIVE_TAB"} → {ok, tab}
+sidepanel → background : {type:"ENSURE_CONTENT", tabId} → {ok, injected, isMail}
+sidepanel → content    : {target:"content", type:"INSERT_TEXT"|"GET_COMPOSER"|"PING"}
+content → background   : {type:"AI_COPILOT_FROM_PAGE", payload:{kind:"none"}}  // только открыть панель
 ```
+`GET_MAIL`/`GET_PAGE`/`GET_SELECTION`/`CONTEXT_PUSH`/`GET_PENDING_CONTEXT` в UI-пути 0.2.16 не используются
+(мёртвый код/адаптеры можно удалить позже).
 
-Storage: `settings` (провайдер, base URL, модель, ключ, max tokens, streaming, тема, голос),
-`styleProfile` (prefs + до 30 пар «черновик→правка» + выведенные правила), `chatSessions` (до 20 чатов),
-`pendingContext` в `storage.session` (живёт до перезагрузки браузера).
+Storage: `settings`, `styleProfile`, `chatSessions`; `pendingContext` больше не нужен панели.
 
-Ошибки нормализованы в `LLMError` (`NO_KEY`, `NO_PERMISSION`, `AUTH`, `RATE_LIMIT`, `NOT_FOUND`, `TIMEOUT`,
-`NETWORK`, `SERVER`, `BAD_RESPONSE`, `ABORTED`); панель показывает заголовок, подсказку и кнопки
-«Повторить»/«Разрешить домен»/«Настройки». Ретраи — только до первого токена (2 повтора = до 3 попыток), стрим не переигрывается.
-
+Ошибки нормализованы в `LLMError`; панель показывает заголовок/подсказку/кнопки; ретраи — только до первого
+токена, стрим не переигрывается.
 ## 5. Приватность и безопасность
 
 - **BYOK.** Ключ вводит пользователь, он лежит в `chrome.storage.local` (не `sync`). Ключ виден только
   странице настроек (с маскированием) и клиенту; в логи, историю и экспорт профиля он не попадает.
   Пользователь может отозвать доступы к доменам одной кнопкой.
-- **Что уходит провайдеру:** текст вопроса, извлечённый контент (страница — до 14 000 символов, письмо —
-  до 12 000, выделение — до 4 000), системный промпт с профилем стиля. По умолчанию — DeepSeek
+- **Что уходит провайдеру:** текст вопроса и текст из большой ячейки (до 12 000 символов),
+  системный промпт с профилем стиля. Страницы/DOM/письма не читаются. По умолчанию — DeepSeek
   (`api.deepseek.com/chat/completions`, адрес и модель зафиксированы). Размер ограничен
   на клиенте. Никакой телеметрии, аналитики, собственного бэкенда нет.
-- **Prompt injection.** Всё, что пришло из DOM, оборачивается `<<<ДАННЫЕ:<nonce>>> … <<<КОНЕЦ:<nonce>>>`
+- **Prompt injection.** Вставленный текст оборачивается `<<<ДАННЫЕ:<nonce>>> … <<<КОНЕЦ:<nonce>>>`
   с криптослучайным nonce на каждый запрос. Внутри данных вырезаются `<<<`/`>>>`, control/bidi.
   Имя отправителя и имена вложений идут ОТДЕЛЬНЫМ nonce-блоком и не выводятся в system-инструкции;
   reply получает «Адресат/Вложения» только внутри блока. Системный промпт запрещает выполнять
@@ -184,44 +168,21 @@ Storage: `settings` (провайдер, base URL, модель, ключ, max t
 - **Альтернатива на будущее:** `MediaRecorder` + собственный STT (Whisper API по BYOK или локальный
   сервер) — контроль приватности и цены, но отдельный UX; в MVP сознательно не тащим.
 
-## 7. Интеграция с почтой: DOM сейчас, API позже
+## 7. Почта: без авто-чтения, только вставка
 
-**Сейчас (MVP):** `content.js` читает открытый тред через DOM. Gmail: `div[role="main"]`, карточки
-`div.adn.ads` / `[data-message-id]`, тело `.a3s` (цитаты и подписи вычищаются из клона). Outlook Web:
-несколько стратегий селекторов (`[id^="UniqueMessageBody"]`, `[data-automationid="messageBody"]`,
-`div.allowTextSelection`), при неудаче — «упрощённое чтение» всего региона и флаг `degraded`.
-Вставка — `execCommand('insertText')` → `insertHTML` → `textContent` (для пустого contenteditable);
-если не вышло — копирование в буфер и явная просьба вставить вручную. Это хрупко: вёрстка меняется
-без предупреждения, селекторы придётся поддерживать по версиям, а часть писем (iframe, canvas,
-PDF-вложения, «показать скрытую часть») недоступна.
+**В 0.2.16 авто-чтение писем/страниц отключено.** Панель не вызывает `GET_MAIL`/`GET_PAGE`, не строит
+reading pane/сайдбары и не выбирает сообщения. Единственный источник контекста — большая textarea
+«Вставьте текст письма/переписки» (manual-only); это убирает зависимость от хрупкой вёрстки Gmail,
+Outlook Web, Яндекс Почты/360.
 
-**Яндекс Почта и Яндекс 360 (best-effort).** Домены `mail.yandex.*` (8) и `mail.360.yandex.*` (8)
-добавлены в `content_scripts` (20 доменов почты всего), `WEBMAIL_HOSTS` и `detectSite()` (site = `yandex`).
-Приоритет чтения: только **область чтения открытого письма** (`.mail-MessageView`/`.mail-Thread`/`.mail-Content`/`[role="main"]`), не `document.body`/layout; внутри — BEM-карточки `.mail-Message`/`.mail-Thread-Message` с
-`.mail-Message-Body`; сайдбары/списки (`.mail-ThreadsList`, `.mail-MessageList`, `[class*="Sidebar"]`, `[class*="Snippet"]`, `[class*="related"]`, `[role="complementary"]`) исключаются из `openMessage`/`threadMessages`/attachments/темы; сниппеты отбрасываются; если видно одно письмо — threadMessages = [оно]. Если нет `.mail-MessageView`/`[role=main]`, fallback берёт видимое `.mail-Message-Body` вне сайдбара и строит карточку вокруг него (Fwd-письма не дают пустой стейт). Сообщения ниже вьюпорта читаются, если уже отрисованы в DOM reading pane; свёрнутые/ленивые — только после «Открыть всю переписку»/прокрутки.
-Тема — `.mail-Thread-Subject`/`.mail-Message-Subject`/`h1`/`h2`/title;
-отправитель/время — только из шапки карточки **до первого `.mail-Message-Body`** (`.mail-Message-Sender`/`.mail-Message-Date`/Header); цитатные `Кому:/Тема:/От:`, email/дата из body/blockquote/вложенных писем/forwarded-блока игнорируются; получатель — «Кому:» из шапки;
-тело — `.mail-Message-Body`; вложения — `.mail-Message-Attachments`/`[class*="Attachment"]`/`[download_url]` (только имена файлов); `cleanYandexBody` вырезает blockquote, вложенные `.mail-Message`/`.mail-Message-Body`, forwarded-блок и «… пишет:», оставляя только собственный текст открытого письма (при пустом — «(без текста, см. вложения)»). Если темы или отправителя нет —
-`degraded: true`. Вставка: `.mail-Compose-Body` — приоритетный селектор композера; если композер в iframe,
-`INSERT_TEXT` возвращает `COMPOSER_IN_IFRAME`, панель копирует текст в буфер. Логин-экран не отдаётся как
-«письмо». Кнопка (right 18 / bottom 92) переустанавливается при SPA-навигации. Проверено на синтетическом
-DOM для обоих UI; авто-инжект в branded-Chrome отключён (`--load-extension` запрещён) — injection/вставка
-требуют ручного QA.
+Content script оставлен для:
+- `INSERT_TEXT` — вставка готового ответа в открытый композер (`.mail-Compose-Body` и аналоги; при
+  iframe/недоступности — копирование в буфер);
+- плавающей кнопки «AI Bro» на почте — только открыть side panel, без извлечения контента.
 
-**Почему не OAuth в MVP:** `gmail.readonly`/`gmail.compose` — restricted scopes: публикация в CWS требует
-OAuth verification и **security assessment (CASA)** — недели и деньги, плюс токены нельзя безопасно
-хранить в чистом клиенте без сервера. Microsoft Graph требует publisher verification и admin consent.
-DOM даёт 80% ценности за 1% усилий; OAuth — отдельный этап после валидации спроса.
-
-**Дальше:**
-1. Gmail API: `gmail.readonly` для чтения, `gmail.compose`/`gmail.send` для черновиков (отправка — всё
-   равно только после явного подтверждения), OAuth через `chrome.identity.launchWebAuthFlow`, серверный
-   обмен refresh-токена (без сервера нельзя — потребуется минимальный backend или Chrome Identity).
-2. Microsoft Graph: `Mail.Read`, `Mail.ReadWrite`, `Mail.Send` (делегированные), MSAL, publisher
-   verification; для enterprise — согласие администратора.
-3. Гибрид: DOM остаётся fallback для корпоративных веб-почт и нестандартных доменов.
-4. Restricted scopes означают security assessment для Gmail — планировать в бэклоге беты, не MVP.
-
+Домены почты и content scripts в манифесте сохранены для этих двух функций (20 доменов). Остальные
+адаптеры извлечения можно считать мёртвым кодом, панель их не вызывает. Вставка в iframe/PDF/canvas
+не поддерживается и деградирует до буфера.
 ## 8. Сборка, версионирование, артефакты
 
 `extension/package.ps1` (PowerShell 5.1+, без npm):
@@ -234,7 +195,7 @@ DOM даёт 80% ценности за 1% усилий; OAuth — отдельн
    `extension/dist/aibro-<version>.zip`, manifest в корне архива;
 5. печатает размер, число и список записей.
 
-Версионирование: SemVer в `manifest.json`; `0.1.x` — первый скелет, `0.2.15` — поле «Своё сообщение», reasoning high
+Версионирование: SemVer в `manifest.json`; `0.1.x` — первый скелет, `0.2.16` — manual-only большая ячейка, без чтения окон
 по умолчанию, `0.3.0` — бета с OAuth-гибридом, `1.0.0` — публичный релиз. Каждый релиз — отдельный zip,
 старые не перезаписываем; changelog в
 `proposals/engineering/`.

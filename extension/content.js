@@ -20,7 +20,7 @@
   if (window.__AI_COPILOT_CONTENT__) return;
   window.__AI_COPILOT_CONTENT__ = true;
 
-  const VERSION = '0.2.15';
+  const VERSION = '0.2.16';
   const LIMITS = { pageChars: 14000, mailChars: 12000, selectionChars: 4000, comptoserChars: 6000, walkBudget: 20000 };
 
   const NOISE_TAGS = new Set([
@@ -1494,15 +1494,15 @@
       button.className = 'btn';
       button.type = 'button';
       button.setAttribute('data-state', 'idle');
-      button.setAttribute('aria-label', 'AI Bro: спросить про это письмо');
-      button.title = 'AI Bro — открыть панель с контекстом';
+      button.setAttribute('aria-label', 'AI Bro: открыть панель');
+      button.title = 'AI Bro — открыть панель';
       const dot = document.createElement('span');
       dot.className = 'dot';
       const label = document.createElement('span');
       label.textContent = 'AI Bro';
       const sr = document.createElement('span');
       sr.className = 'sr';
-      sr.textContent = 'Спросить AI Bro про открытое письмо';
+      sr.textContent = 'Открыть AI Bro';
       button.append(dot, label, sr);
       wrap.append(button);
       shadow.append(style, wrap);
@@ -1522,20 +1522,8 @@
     const button = event.currentTarget;
     try {
       button.setAttribute('data-state', 'busy');
-      const site = detectSite();
-      const selection = getSelectionText();
-      const payload = { site };
-      if (selection) {
-        payload.kind = 'selection';
-        payload.text = selection;
-      } else if (site) {
-        payload.kind = 'mail';
-        payload.mail = extractMailContext();
-      } else {
-        payload.kind = 'page';
-        payload.page = extractMainContent();
-      }
-      await chrome.runtime.sendMessage({ type: 'AI_COPILOT_FROM_PAGE', payload });
+      // Кнопка только открывает панель: контент не читаем и не передаём.
+      await chrome.runtime.sendMessage({ type: 'AI_COPILOT_FROM_PAGE', payload: { kind: 'none' } });
       button.setAttribute('data-state', 'done');
       setTimeout(() => button.setAttribute('data-state', 'idle'), 1200);
     } catch {

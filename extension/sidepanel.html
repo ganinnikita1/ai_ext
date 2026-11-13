@@ -61,68 +61,42 @@
         <button class="text-btn" id="btn-banner-action" type="button">Настроить</button>
       </div>
 
-      <div class="context-bar" id="context-bar" hidden>
-        <svg class="icon context-bar__icon" aria-hidden="true"><use id="context-icon" href="#i-page"></use></svg>
-        <div class="context-bar__body">
-          <span class="context-bar__kind" id="context-kind">Страница</span>
-          <span class="context-bar__title" id="context-title"></span>
-        </div>
-        <button class="icon-btn icon-btn--sm" id="btn-context-refresh" type="button" title="Обновить контекст" aria-label="Обновить контекст">
-          <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>
-        </button>
-        <button class="icon-btn icon-btn--sm" id="btn-context-remove" type="button" title="Убрать контекст" aria-label="Убрать контекст">
-          <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
-        </button>
-      </div>
-
-      <section class="manual" id="manual-section" aria-label="Своё сообщение">
-        <div class="manual__head">
-          <button class="manual__toggle" id="btn-manual-toggle" type="button" aria-expanded="true" aria-controls="manual-body">
-            <svg class="icon manual__chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
-            <span>Вставьте сообщение</span>
-          </button>
-          <span class="manual__chip" id="manual-chip" hidden>
-            <span class="manual__chip-text" id="manual-chip-text">Своё сообщение · 0 знаков</span>
-            <button class="manual__chip-close" id="btn-manual-chip-clear" type="button" aria-label="Очистить своё сообщение" title="Очистить">×</button>
-          </span>
-        </div>
-        <div class="manual__body" id="manual-body">
-          <textarea class="manual__textarea" id="manual-text" rows="3" maxlength="30000" placeholder="Скопируйте письмо/сообщение сюда — разберу или отвечу по нему"></textarea>
-          <div class="manual__actions">
-            <button class="primary-btn manual__use" id="btn-manual-use" type="button">Использовать</button>
-            <button class="ghost-btn manual__small" id="btn-manual-paste" type="button">Вставить из буфера</button>
-            <button class="ghost-btn manual__small" id="btn-manual-clear" type="button">Очистить</button>
-          </div>
-          <p class="manual__counter" id="manual-counter">0 / 12 000 знаков</p>
+      <section class="manual" id="manual-section" aria-label="Текст для разбора">
+        <label class="manual__label" for="manual-text">Вставьте текст письма/переписки</label>
+        <textarea
+          class="manual__textarea"
+          id="manual-text"
+          rows="10"
+          maxlength="30000"
+          placeholder="Скопируйте письмо/сообщение сюда — разберу или отвечу по нему"
+        ></textarea>
+        <div class="manual__actions">
+          <button class="ghost-btn manual__small" id="btn-manual-paste" type="button">Вставить из буфера</button>
+          <button class="ghost-btn manual__small" id="btn-manual-clear" type="button">Очистить</button>
+          <span class="manual__counter" id="manual-counter">0 / 12 000 знаков</span>
         </div>
       </section>
 
-      <div class="message-meta" id="message-meta" hidden></div>
-
-      <main class="chat" id="chat" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Диалог с AI"></main>
-
-      <section class="quickbar" aria-label="Быстрые действия">
-        <button class="chip" id="btn-explain" type="button">
-          <svg class="icon" aria-hidden="true"><use href="#i-page"></use></svg>
-          Объяснить страницу
-        </button>
-        <button class="chip" id="btn-reply" type="button" disabled>
+      <section class="quickbar" aria-label="Разбор текста">
+        <button class="chip" id="btn-reply" type="button">
           <svg class="icon" aria-hidden="true"><use href="#i-mail"></use></svg>
           Ответить на письмо
         </button>
-        <button class="chip" id="btn-brief" type="button" disabled>
+        <button class="chip" id="btn-brief" type="button">
           <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
           Краткая сводка
         </button>
-        <button class="chip" id="btn-summary" type="button" disabled>
+        <button class="chip" id="btn-summary" type="button">
           <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
           Разобрать письмо
         </button>
-        <button class="chip" id="btn-summary-thread" type="button" disabled>
+        <button class="chip" id="btn-summary-thread" type="button">
           <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
           Разобрать всю переписку
         </button>
       </section>
+
+      <main class="chat" id="chat" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Диалог с AI"></main>
 
       <form class="composer" id="composer-form" autocomplete="off">
         <div class="composer__field">
@@ -131,7 +105,7 @@
             id="input"
             class="composer__input"
             rows="1"
-            placeholder="Спросите про страницу или письмо…"
+            placeholder="Спросите про вставленный текст…"
             aria-describedby="voice-status composer-note"
           ></textarea>
         </div>
@@ -151,7 +125,7 @@
         </div>
         <p class="composer__note" id="composer-note">
           <span>Enter — спросить, Shift+Enter — новая строка.</span>
-          <span>AI Bro не отправляет письма сам — только вставка текста.</span>
+          <span>AI Bro работает только с текстом из поля и не отправляет письма сам.</span>
         </p>
       </form>
     </div>

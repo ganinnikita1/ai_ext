@@ -39,7 +39,7 @@ export const PROVIDER_PRESETS = Object.freeze({
     models: ['deepseek-flash'],
     needsKey: true,
     keyUrl: 'https://platform.deepseek.com/api_keys',
-    hint: 'Модель зафиксирована: deepseek-flash. Reasoning: medium (thinking enabled). Base URL: https://api.deepseek.com.',
+    hint: 'Модель зафиксирована: deepseek-flash. Reasoning: high (thinking enabled). Base URL: https://api.deepseek.com.',
   },
   openai: {
     label: 'OpenAI-совместимый',

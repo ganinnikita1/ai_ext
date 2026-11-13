@@ -2,7 +2,7 @@
 
 Документ для инженерного ревью, стора и следующего шага разработки. Кодовый скелет —
 `browser-ai-copilot/extension`, продуктовый концепт — `browser-ai-copilot/proposals/inventor/concept.md`.
-Название продукта: **AI Bro**, версия скелета 0.2.13.
+Название продукта: **AI Bro**, версия скелета 0.2.15.
 
 ## 1. Границы этого этапа
 
@@ -49,8 +49,8 @@
   модель **зафиксированы в коде**: `deepseek-flash`. Настройки дают только API-ключ и стриминг — выбрать
   другую модель/провайдера/Base URL нельзя. `normalizeSettings` (schema 3) принудительно
   мигрирует старые настройки (openai/anthropic/ollama, другая модель) к фиксированному профилю.
-- Reasoning включён на среднем уровне: тело запроса `"thinking": {"type": "enabled"}` +
-  `"reasoning_effort": "medium"`. Параметр отправляется только DeepSeek; при HTTP 400 с текстом про неизвестное
+- Reasoning включён на высоком уровне: тело запроса `"thinking": {"type": "enabled"}` +
+  `"reasoning_effort": "high"`. Параметр отправляется только DeepSeek; при HTTP 400 с текстом про неизвестное
   поле — один повтор без thinking/reasoning_effort и без temperature (на invalid model не повторяем).
   Температура не вынесена в UI: задачи используют собственные проверенные значения.
 - Проверка соединения: `GET /models` с `Authorization: Bearer …`; при отсутствии модели — `ok:false` с предупреждением. Баланс не запрашивается; HTTP 402 → `BALANCE` (без цифр баланса).
@@ -115,7 +115,7 @@ DeepSeek; localhost-хосты не используются, провайдер
 стрим → парсер вариантов → карточки → `INSERT_TEXT` в композер → пользователь правит и отправляет. Кнопка панели — «Спросить» (не отправка письма); quickbar: «Ответить на письмо», «Краткая сводка», «Разобрать письмо», «Разобрать всю переписку»; вставка идёт только выбранным вариантом; демо-дисклеймер показывается отдельным UI-notice и не попадает в тело.
 Промпты: content script отдаёт `openMessage` (открытое письмо) и `threadMessages` (все сообщения reading pane);
 `formatMailForPrompt({scope:'open'|'thread'})` для open берёт только `openMessage`, для thread — все
-`threadMessages`; reply всегда open; summary/chat scope задаёт кнопка; `buildSummaryTask({brief:true})` — краткая сводка (3–5 пунктов) по open; анти-галлюцинации (Адресат/Вложения) сохранены.
+`threadMessages`; reply всегда open; summary/chat scope задаёт кнопка; `buildSummaryTask({brief:true})` — краткая сводка (3–5 пунктов) по open; анти-галлюцинации (Адресат/Вложения) сохранены. Поле «Вставьте сообщение» (manual) приоритетнее страницы: все действия идут по псевдо-mail `{manual:true, subject:'Своё сообщение', openMessage:{text: manualText}}`, авто-контекст читается только при пустом поле; лимит 12 000 знаков.
 
 ### Формат сообщений
 
@@ -200,8 +200,8 @@ PDF-вложения, «показать скрытую часть») недос
 Приоритет чтения: только **область чтения открытого письма** (`.mail-MessageView`/`.mail-Thread`/`.mail-Content`/`[role="main"]`), не `document.body`/layout; внутри — BEM-карточки `.mail-Message`/`.mail-Thread-Message` с
 `.mail-Message-Body`; сайдбары/списки (`.mail-ThreadsList`, `.mail-MessageList`, `[class*="Sidebar"]`, `[class*="Snippet"]`, `[class*="related"]`, `[role="complementary"]`) исключаются из `openMessage`/`threadMessages`/attachments/темы; сниппеты отбрасываются; если видно одно письмо — threadMessages = [оно]. Если нет `.mail-MessageView`/`[role=main]`, fallback берёт видимое `.mail-Message-Body` вне сайдбара и строит карточку вокруг него (Fwd-письма не дают пустой стейт). Сообщения ниже вьюпорта читаются, если уже отрисованы в DOM reading pane; свёрнутые/ленивые — только после «Открыть всю переписку»/прокрутки.
 Тема — `.mail-Thread-Subject`/`.mail-Message-Subject`/`h1`/`h2`/title;
-отправитель — `.mail-Message-Sender`/`.mail-Message-Header-From`/`[class*="Sender"]`/`mailto` (display name + email, без аватара); получатель — «Кому:»; время — `.mail-Message-Date`/`time`/дата в шапке;
-тело — `.mail-Message-Body`; вложения — `.mail-Message-Attachments`/`[class*="Attachment"]`/`[download_url]` (только имена файлов); `cleanYandexBody` вырезает цитаты (blockquote, вложенные `.mail-Message`/`.mail-Message-Body`, «… пишет:»), но сохраняет блок «Пересылаемое сообщение». Если темы или отправителя нет —
+отправитель/время — только из шапки карточки **до первого `.mail-Message-Body`** (`.mail-Message-Sender`/`.mail-Message-Date`/Header); цитатные `Кому:/Тема:/От:`, email/дата из body/blockquote/вложенных писем/forwarded-блока игнорируются; получатель — «Кому:» из шапки;
+тело — `.mail-Message-Body`; вложения — `.mail-Message-Attachments`/`[class*="Attachment"]`/`[download_url]` (только имена файлов); `cleanYandexBody` вырезает blockquote, вложенные `.mail-Message`/`.mail-Message-Body`, forwarded-блок и «… пишет:», оставляя только собственный текст открытого письма (при пустом — «(без текста, см. вложения)»). Если темы или отправителя нет —
 `degraded: true`. Вставка: `.mail-Compose-Body` — приоритетный селектор композера; если композер в iframe,
 `INSERT_TEXT` возвращает `COMPOSER_IN_IFRAME`, панель копирует текст в буфер. Логин-экран не отдаётся как
 «письмо». Кнопка (right 18 / bottom 92) переустанавливается при SPA-навигации. Проверено на синтетическом
@@ -234,7 +234,7 @@ DOM даёт 80% ценности за 1% усилий; OAuth — отдельн
    `extension/dist/aibro-<version>.zip`, manifest в корне архива;
 5. печатает размер, число и список записей.
 
-Версионирование: SemVer в `manifest.json`; `0.1.x` — первый скелет, `0.2.13` — AI Bro, краткая сводка, Fwd-fallback
+Версионирование: SemVer в `manifest.json`; `0.1.x` — первый скелет, `0.2.15` — поле «Своё сообщение», reasoning high
 по умолчанию, `0.3.0` — бета с OAuth-гибридом, `1.0.0` — публичный релиз. Каждый релиз — отдельный zip,
 старые не перезаписываем; changelog в
 `proposals/engineering/`.

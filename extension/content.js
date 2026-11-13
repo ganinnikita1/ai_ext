@@ -20,7 +20,7 @@
   if (window.__AI_COPILOT_CONTENT__) return;
   window.__AI_COPILOT_CONTENT__ = true;
 
-  const VERSION = '0.2.13';
+  const VERSION = '0.2.15';
   const LIMITS = { pageChars: 14000, mailChars: 12000, selectionChars: 4000, comptoserChars: 6000, walkBudget: 20000 };
 
   const NOISE_TAGS = new Set([
@@ -759,31 +759,51 @@
   function cleanYandexBody(element) {
     try {
       const originalText = normalizeText(nodeToText(element));
-      // Пересылаемое письмо — часть текущего сообщения, его терять нельзя;
-      // в промпте оно будет помечено как цитата, а не вырезано.
-      const hasForwarded = /пересылаемое сообщение|forwarded message|original message/i.test(originalText);
       const clone = element.cloneNode(true);
-      const noiseSelectors = ['blockquote', '[class*="quote" i]', '[class*="Quote"]', '[class*="цитата" i]'];
-      if (!hasForwarded) noiseSelectors.push('.mail-Message', '.mail-Thread-Message', '.mail-Message-Body');
-      const noise = clone.querySelectorAll(noiseSelectors.join(', '));
-      for (const node of noise) node.remove();
+      const noiseSelectors = [
+        'blockquote',
+        '[class*="quote" i]',
+        '[class*="Quote"]',
+        '[class*="цитата" i]',
+        '.mail-Message',
+        '.mail-Thread-Message',
+        '.mail-Message-Body',
+        '.mail-Message-Body-Content',
+        '[class*="Forward" i]',
+        '[class*="forwarded" i]',
+        '[class*="Пересыл" i]',
+      ];
+      for (const node of clone.querySelectorAll(noiseSelectors.join(', '))) node.remove();
       let value = normalizeText(nodeToText(clone));
-      // «12.11.2026, Ирина пишет:» — после такой шапки идёт цитата истории; вложенные
-      // контейнеры уже вырезаны, поэтому отбрасываем и шапку, и весь хвост после неё.
+      // Открытое письмо: только собственный текст до цитаты/пересылаемого блока.
       const kept = [];
-      let inQuotedTail = false;
+      let stopped = false;
       for (const line of value.split('\n')) {
-        if (inQuotedTail) continue;
+        const trimmed = line.trim();
+        if (stopped) continue;
+        if (
+          /^[-—]{2,}\s*(?:пересылаемое|forwarded|original)/i.test(trimmed) ||
+          /пересылаемое сообщение|forwarded message|original message/i.test(trimmed)
+        ) {
+          stopped = true;
+          continue;
+        }
         if (/^\s*>/.test(line)) continue;
-        if (/^\s*—{2,}/.test(line)) continue;
-        if (!hasForwarded && /(?:^|[\s,])(?:пишет|писал\(а\)|писала|написал\(а\)|wrote)\s*:\s*$/i.test(line.trim())) {
-          inQuotedTail = true;
+        if (/(?:^|[\s,])(?:пишет|писал\(а\)|писала|написал\(а\)|wrote)\s*:\s*$/i.test(trimmed)) {
+          stopped = true;
+          continue;
+        }
+        if (/^(?:Кому|Тема|От|To|Subject|From)\s*:/i.test(trimmed)) {
+          stopped = true;
           continue;
         }
         kept.push(line);
       }
       value = normalizeText(kept.join('\n'));
-      if (value.length < 20 && originalText.length >= 20) return originalText.slice(0, LIMITS.mailChars);
+      // Не откатываемся к originalText, если там была цитата/пересылка.
+      if (!value && !/пересылаемое|forwarded|original message|пишет\s*:/i.test(originalText)) {
+        return originalText.slice(0, LIMITS.mailChars);
+      }
       return value.slice(0, LIMITS.mailChars);
     } catch {
       return '';
@@ -872,8 +892,25 @@
   }
 
   /** Элементы шапки карточки, не принадлежащие вложенным/цитируемым письмам. */
+  function yandexFirstBody(node) {
+    if (!node || typeof node.querySelector !== 'function') return null;
+    for (const selector of YANDEX_BODY_SELECTORS) {
+      let elements;
+      try {
+        elements = node.querySelectorAll(selector);
+      } catch {
+        continue;
+      }
+      for (const element of elements) {
+        if (!element.closest(YANDEX_SIDEBAR_SELECTOR)) return element;
+      }
+    }
+    return null;
+  }
+
   function yandexOwnHeaderElements(node, selectors) {
     const found = [];
+    const firstBody = yandexFirstBody(node);
     for (const selector of selectors) {
       let elements;
       try {
@@ -885,8 +922,15 @@
         if (element.closest('.mail-Message-Body, .mail-Message-Body-Content')) continue;
         if (element.closest('blockquote, [class*="quote" i], [class*="цитата" i]')) continue;
         if (element.closest(YANDEX_SNIPPET_SELECTOR)) continue;
+        if (element.closest(YANDEX_SIDEBAR_SELECTOR)) continue;
+        if (element.closest('[class*="Forward" i], [class*="forwarded" i], [class*="Пересыл" i]')) continue;
         const owner = element.closest('.mail-Message, .mail-Thread-Message');
         if (owner && owner !== node) continue;
+        // Шапка открытого письма — только элементы ДО первого тела.
+        if (firstBody) {
+          if (element.contains(firstBody)) continue;
+          if (!(element.compareDocumentPosition(firstBody) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+        }
         found.push(element);
       }
     }
@@ -898,8 +942,17 @@
     const clone = node.cloneNode(true);
     for (const body of clone.querySelectorAll('.mail-Message-Body, .mail-Message-Body-Content')) body.remove();
     for (const nested of clone.querySelectorAll('.mail-Message, .mail-Thread-Message')) nested.remove();
-    for (const quoted of clone.querySelectorAll('blockquote, [class*="quote" i], [class*="цитата" i]')) quoted.remove();
-    return normalizeText(nodeToText(clone)).slice(0, 1200);
+    for (const quoted of clone.querySelectorAll(
+      'blockquote, [class*="quote" i], [class*="цитата" i], [class*="Forward" i], [class*="forwarded" i], [class*="Пересыл" i]',
+    )) {
+      quoted.remove();
+    }
+    const lines = normalizeText(nodeToText(clone)).split('\n');
+    // Всё после маркера пересылки/цитаты — уже не шапка открытого письма.
+    const stop = lines.findIndex((line) =>
+      /пересылаемое сообщение|forwarded message|original message|---+\s*$/i.test(line),
+    );
+    return normalizeText((stop >= 0 ? lines.slice(0, stop) : lines).join('\n')).slice(0, 1200);
   }
 
   function elementTextWithoutAvatar(element) {
@@ -967,7 +1020,12 @@
       if (value) return value;
     }
     const headerElement = node.querySelector('.mail-Message-Header, [class*="Header" i]');
-    return headerElement ? findEmail(headerElement) : '';
+    if (!headerElement) return '';
+    const firstBody = yandexFirstBody(node);
+    if (firstBody && (headerElement.contains(firstBody) || !(headerElement.compareDocumentPosition(firstBody) & Node.DOCUMENT_POSITION_FOLLOWING))) {
+      return '';
+    }
+    return findEmail(headerElement);
   }
 
   function yandexRecipient(node) {
@@ -1070,7 +1128,13 @@
       // Если тела нет, но есть вложения — не подставляем текст плашки как тело письма.
       const body = bodyElement ? cleanYandexBody(bodyElement) : attachments.length ? '' : cleanMailBody(node, YANDEX_HEADER_NOISE);
       if (!body && !attachments.length) continue;
-      messages.push({ from: sender, to: yandexRecipient(node), time: yandexTime(node), text: body || '(без текста)', attachments });
+      messages.push({
+        from: sender,
+        to: yandexRecipient(node),
+        time: yandexTime(node),
+        text: body || (attachments.length ? '(без текста, см. вложения)' : '(без текста)'),
+        attachments,
+      });
       keptNodes.push(node);
       if (sender) participants.push(sender);
     }

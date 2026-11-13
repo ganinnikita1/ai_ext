@@ -113,12 +113,12 @@ export function buildRequest(settings, task, { stream = true } = {}) {
     };
   }
 
-  // DeepSeek: reasoning включён на среднем уровне (reasoning_effort medium → high на сервере).
+  // DeepSeek: reasoning включён на высоком уровне (reasoning_effort high).
   // Это даёт более качественные черновики; в thinking-режиме DeepSeek игнорирует temperature,
   // но мы всё равно отправляем её — это допустимо. Параметр только для deepseek.
   if (s.provider === 'deepseek') {
     body.thinking = { type: 'enabled' };
-    body.reasoning_effort = 'medium';
+    body.reasoning_effort = 'high';
   }
 
   return { url: endpoint, headers, body, provider: s.provider };

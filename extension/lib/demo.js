@@ -143,10 +143,11 @@ function briefText(mail) {
   const last = messages[messages.length - 1] || {};
   const subject = cleanSubject(m.subject) || 'без темы';
   const from = displayName(last.from);
+  const manual = Boolean(m.manual);
   const attachments = Array.isArray(last.attachments) ? last.attachments.filter(Boolean) : [];
-  const lines = [`Кратко по письму «${subject}»:`];
+  const lines = [manual ? 'Кратко по сообщению:' : `Кратко по письму «${subject}»:`];
   lines.push(`- Суть: ${firstSentences(last.text, 1, 160) || 'Текст письма не извлечён.'}`);
-  lines.push(`- Что хотят: ответ отправителю (${from}).`);
+  lines.push(`- Что хотят: ${manual ? 'ответ на вставленное сообщение.' : `ответ отправителю (${from}).`}`);
   lines.push('- Сроки: явно не указаны — уточните при ответе.');
   lines.push(`- Действия: ответить; ${attachments.length ? `проверить вложение «${attachments[0]}»` : 'проверить детали письма'}.`);
   return lines.join('\n');
@@ -157,8 +158,13 @@ function summaryText(mail) {
   const messages = Array.isArray(m.messages) ? m.messages : [];
   const last = messages[messages.length - 1] || {};
   const subject = cleanSubject(m.subject) || 'без темы';
+  const manual = Boolean(m.manual);
   const lines = [];
-  lines.push(`Переписка: «${subject}» (сообщений извлечено: ${messages.length}).`);
+  lines.push(
+    manual
+      ? 'Своё сообщение (вставлено вручную):'
+      : `Переписка: «${subject}» (сообщений извлечено: ${messages.length}).`,
+  );
   lines.push('');
   lines.push('Суть:');
   lines.push(`- ${firstSentences(last.text, 2) || 'Основной текст письма не извлечён.'}`);

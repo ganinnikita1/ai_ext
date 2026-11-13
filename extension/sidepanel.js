@@ -59,6 +59,17 @@ const el = {
   messageMeta: $('message-meta'),
   contextRemove: $('btn-context-remove'),
   contextRefresh: $('btn-context-refresh'),
+  manualSection: $('manual-section'),
+  manualToggle: $('btn-manual-toggle'),
+  manualBody: $('manual-body'),
+  manualText: $('manual-text'),
+  manualChip: $('manual-chip'),
+  manualChipText: $('manual-chip-text'),
+  manualChipClear: $('btn-manual-chip-clear'),
+  manualUse: $('btn-manual-use'),
+  manualPaste: $('btn-manual-paste'),
+  manualClear: $('btn-manual-clear'),
+  manualCounter: $('manual-counter'),
   btnNew: $('btn-new'),
   btnHistory: $('btn-history'),
   btnTheme: $('btn-theme'),
@@ -92,6 +103,8 @@ const state = {
   mailAvailable: false,
   accessError: null,
   analysisScope: 'open',
+  manualText: '',
+  manualOpen: true,
   theme: 'auto',
   voice: {
     recognition: null,
@@ -110,6 +123,7 @@ const state = {
 const liveViews = new Map();
 let saveTimer = null;
 let contextRefreshTimer = null;
+const MANUAL_LIMIT = 12000;
 
 /* ------------------------------------------------------------------ */
 /* small utils                                                         */
@@ -408,6 +422,96 @@ async function requestTabAccess() {
 /* context bar                                                         */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* manual message (приоритетнее страницы/письма)                         */
+/* ------------------------------------------------------------------ */
+
+function manualRaw() {
+  return String(state.manualText || '');
+}
+
+function getManualText(options = {}) {
+  const raw = manualRaw().trim();
+  if (!raw) return '';
+  if (raw.length > MANUAL_LIMIT) {
+    if (options.notify) toast(`Текст обрезан до ${MANUAL_LIMIT.toLocaleString('ru-RU')} знаков.`, true);
+    return raw.slice(0, MANUAL_LIMIT);
+  }
+  return raw;
+}
+
+function isManualActive() {
+  return Boolean(getManualText());
+}
+
+/** Псевдо-mail: единственный источник — вставленный пользователем текст. */
+function manualMail() {
+  const text = getManualText({ notify: true });
+  if (!text) return null;
+  const message = { from: '', to: '', time: '', text, attachments: [] };
+  return {
+    site: 'manual',
+    manual: true,
+    subject: 'Своё сообщение',
+    degraded: false,
+    openIndex: 0,
+    openMessage: message,
+    threadMessages: [message],
+    messages: [message],
+    participants: [],
+  };
+}
+
+function manualPreview() {
+  const raw = getManualText().replace(/\s+/g, ' ').trim();
+  return truncate(raw || 'Вставленный текст', 80);
+}
+
+function updateManualUi() {
+  const raw = manualRaw();
+  const length = raw.trim().length;
+  el.manualSection.classList.toggle('is-open', state.manualOpen);
+  el.manualBody.hidden = !state.manualOpen;
+  el.manualToggle.setAttribute('aria-expanded', String(state.manualOpen));
+  el.manualChip.hidden = length === 0;
+  if (el.manualChipText) el.manualChipText.textContent = `Своё сообщение · ${length.toLocaleString('ru-RU')} знаков`;
+  el.manualCounter.textContent = `${length.toLocaleString('ru-RU')} / ${MANUAL_LIMIT.toLocaleString('ru-RU')} знаков`;
+  el.manualCounter.classList.toggle('is-over', length > MANUAL_LIMIT);
+  if (el.manualText.value !== raw) el.manualText.value = raw;
+}
+
+function refreshEmptyOnly() {
+  if (el.chat.querySelector('.empty')) renderChat();
+}
+
+function setManualText(value, { notify = false } = {}) {
+  let next = String(value || '');
+  if (next.length > MANUAL_LIMIT) {
+    next = next.slice(0, MANUAL_LIMIT);
+    if (notify) toast(`Текст обрезан до ${MANUAL_LIMIT.toLocaleString('ru-RU')} знаков.`, true);
+  }
+  state.manualText = next;
+  updateManualUi();
+  renderContextBar();
+  updateQuickActions();
+  refreshEmptyOnly();
+}
+
+function clearManualText(message = 'Своё сообщение очищено') {
+  state.manualText = '';
+  updateManualUi();
+  renderContextBar();
+  updateQuickActions();
+  refreshEmptyOnly();
+  toast(message);
+}
+
+function openManualField() {
+  state.manualOpen = true;
+  updateManualUi();
+  el.manualText.focus();
+}
+
 function contextTitleText(context) {
   if (!context) return '';
   if (context.kind === 'mail') return truncate(context.mail && context.mail.subject ? context.mail.subject : context.title || 'Письмо', 80);
@@ -449,6 +553,12 @@ function openOnlyMail(mail) {
 }
 
 function renderMessageMeta() {
+  const manual = getManualText();
+  if (manual) {
+    el.messageMeta.hidden = false;
+    el.messageMeta.textContent = `Своё сообщение · ${manual.length.toLocaleString('ru-RU')} знаков`;
+    return;
+  }
   const context = state.context;
   const mail = context && context.kind === 'mail' ? context.mail : null;
   if (!mail) {
@@ -482,6 +592,18 @@ function renderMessageMeta() {
 }
 
 function renderContextBar() {
+  const manual = getManualText();
+  if (manual) {
+    el.contextBar.hidden = false;
+    el.contextBar.classList.remove('is-mail');
+    el.contextBar.classList.add('is-manual');
+    el.contextIcon.setAttribute('href', '#i-sparkles');
+    el.contextKind.textContent = 'Своё сообщение';
+    el.contextTitle.textContent = manualPreview();
+    renderMessageMeta();
+    return;
+  }
+  el.contextBar.classList.remove('is-manual');
   const context = state.context;
   if (!context) {
     el.contextBar.hidden = true;
@@ -503,16 +625,17 @@ function setContext(context) {
   updateQuickActions();
 }
 function updateQuickActions() {
-  const hasMail = !!(state.context && state.context.kind === 'mail') || state.mailAvailable;
+  const manual = isManualActive();
+  const hasMail = manual || !!(state.context && state.context.kind === 'mail') || state.mailAvailable;
   el.btnReply.hidden = !hasMail;
   el.btnBrief.hidden = !hasMail;
   el.btnSummary.hidden = !hasMail;
-  el.btnSummaryThread.hidden = !hasMail;
+  el.btnSummaryThread.hidden = manual ? true : !hasMail;
   el.btnExplain.hidden = hasMail;
   el.btnReply.disabled = !hasMail || state.busy;
   el.btnBrief.disabled = !hasMail || state.busy;
   el.btnSummary.disabled = !hasMail || state.busy;
-  el.btnSummaryThread.disabled = !hasMail || state.busy;
+  el.btnSummaryThread.disabled = manual || !hasMail || state.busy;
   el.btnExplain.disabled = state.busy;
   for (const suggestion of el.chat.querySelectorAll('.suggestion[data-suggestion="mail"]')) {
     suggestion.disabled = !hasMail || state.busy;
@@ -653,11 +776,27 @@ function renderEmptyState() {
     wrap.appendChild(demoNote);
   }
 
+  if (!isManualActive()) {
+    const hint = document.createElement('button');
+    hint.type = 'button';
+    hint.className = 'manual-hint';
+    hint.textContent = 'Вставьте сообщение, чтобы не зависеть от вёрстки почты — разберу или отвечу по нему.';
+    hint.addEventListener('click', openManualField);
+    wrap.appendChild(hint);
+  }
+
   const list = document.createElement('div');
   list.className = 'suggestions';
 
   const suggestions = [];
-  if (state.mailAvailable) {
+  const manual = isManualActive();
+  if (manual) {
+    suggestions.push(
+      { icon: '#i-mail', label: 'Ответить на своё сообщение', run: () => generateReply(), mail: true },
+      { icon: '#i-sparkles', label: 'Краткая сводка', run: () => generateSummary('open', true), mail: true },
+      { icon: '#i-mail', label: 'Разобрать своё сообщение', run: () => generateSummary('open'), mail: true },
+    );
+  } else if (state.mailAvailable) {
     suggestions.push(
       { icon: '#i-mail', label: 'Ответить на письмо', run: () => generateReply(), mail: true, disabled: !state.mailAvailable },
       { icon: '#i-sparkles', label: 'Краткая сводка', run: () => generateSummary('open', true), mail: true, disabled: !state.mailAvailable },
@@ -1281,8 +1420,9 @@ async function copyToClipboard(text) {
 
 async function insertTextIntoPage(text) {
   // Перед вставкой сверяем письмо: тема + отправитель/время выбранного сообщения.
+  // Для ручного текста сверять нечего — вставляем в композер как есть.
   let weakSubject = false;
-  if (state.context && state.context.kind === 'mail' && state.context.mail) {
+  if (!isManualActive() && state.context && state.context.kind === 'mail' && state.context.mail) {
     const fresh = await contentRequest('GET_MAIL');
     if (!fresh.ok || !fresh.mail) {
       await copyToClipboard(text);
@@ -1489,11 +1629,15 @@ async function sendChat(question) {
   state.lastAction = action;
   const history = historyForPrompt().slice(0, -1);
 
-  // Сначала разрешаем контекст. Не добавляем сообщение в чат, пока он не подтверждён:
-  // иначе при stale/недоступной странице останется вопрос без ответа.
+  // Приоритет: вставленный вручную текст. Только при пустом поле читаем страницу/письмо.
   let context = null;
   let accessError = null;
-  if (state.context && state.context.kind === 'selection') {
+  const manual = manualMail();
+  if (manual) {
+    context = { kind: 'mail', mail: manual };
+    state.analysisScope = 'open';
+    renderMessageMeta();
+  } else if (state.context && state.context.kind === 'selection') {
     context = { kind: 'selection', text: state.context.text };
   } else if (state.context && state.context.kind === 'mail') {
     const mail = await resolveMail();
@@ -1602,22 +1746,33 @@ async function explainPage(extraQuestion = '') {
 
 async function generateReply(intent = '') {
   if (state.busy) return;
-  const mailResult = await resolveMail();
-  if (!mailResult.mail) {
-    const reason = mailResult.error && mailResult.error.reason;
-    toast(reason === 'NOT_WEBMAIL' ? 'Откройте письмо в Gmail, Outlook или Яндекс Почте' : accessErrorText(reason), true);
-    return;
-  }
-  if (mailResult.stale) {
-    toast('Контекст письма устарел — обновите страницу или панель и повторите.', true);
-    return;
+  const manual = manualMail();
+  let baseMail = manual;
+  if (!manual) {
+    const mailResult = await resolveMail();
+    if (!mailResult.mail) {
+      const reason = mailResult.error && mailResult.error.reason;
+      toast(reason === 'NOT_WEBMAIL' ? 'Откройте письмо в Gmail, Outlook или Яндекс Почте' : accessErrorText(reason), true);
+      return;
+    }
+    if (mailResult.stale) {
+      toast('Контекст письма устарел — обновите страницу или панель и повторите.', true);
+      return;
+    }
+    baseMail = mailResult.mail;
   }
   state.analysisScope = 'open';
   renderMessageMeta();
   const userMessage = {
     id: uid('msg'),
     role: 'user',
-    content: intent ? `Ответь на письмо. ${intent}` : 'Предложи ответ на письмо',
+    content: manual
+      ? intent
+        ? `Ответь на вставленное сообщение. ${intent}`
+        : 'Предложи ответ на вставленное сообщение'
+      : intent
+        ? `Ответь на письмо. ${intent}`
+        : 'Предложи ответ на письмо',
     ts: Date.now(),
     meta: {},
   };
@@ -1631,7 +1786,7 @@ async function generateReply(intent = '') {
   const action = { name: 'reply', intent };
   state.lastAction = action;
   const settings = state.settings;
-  const mail = openOnlyMail(mailResult.mail);
+  const mail = openOnlyMail(baseMail);
   const task = buildReplyTask({
     mail,
     styleHints: styleHints(),
@@ -1644,24 +1799,29 @@ async function generateReply(intent = '') {
 
 async function generateSummary(scope = 'open', brief = false) {
   if (state.busy) return;
-  const mailResult = await resolveMail();
-  if (!mailResult.mail) {
-    const reason = mailResult.error && mailResult.error.reason;
-    toast(reason === 'NOT_WEBMAIL' ? 'Откройте письмо в Gmail, Outlook или Яндекс Почте' : accessErrorText(reason), true);
-    return;
-  }
-  if (mailResult.stale) {
-    toast('Контекст письма устарел — обновите страницу или панель и повторите.', true);
-    return;
+  const manual = manualMail();
+  let baseMail = manual;
+  if (!manual) {
+    const mailResult = await resolveMail();
+    if (!mailResult.mail) {
+      const reason = mailResult.error && mailResult.error.reason;
+      toast(reason === 'NOT_WEBMAIL' ? 'Откройте письмо в Gmail, Outlook или Яндекс Почте' : accessErrorText(reason), true);
+      return;
+    }
+    if (mailResult.stale) {
+      toast('Контекст письма устарел — обновите страницу или панель и повторите.', true);
+      return;
+    }
+    baseMail = mailResult.mail;
   }
   const briefMode = Boolean(brief);
-  const mode = briefMode ? 'open' : scope === 'thread' ? 'thread' : 'open';
-  const available = Array.isArray(mailResult.mail.threadMessages)
-    ? mailResult.mail.threadMessages
-    : Array.isArray(mailResult.mail.messages)
-      ? mailResult.mail.messages
+  const mode = briefMode || manual ? 'open' : scope === 'thread' ? 'thread' : 'open';
+  const available = Array.isArray(baseMail.threadMessages)
+    ? baseMail.threadMessages
+    : Array.isArray(baseMail.messages)
+      ? baseMail.messages
       : [];
-  if (!briefMode && mode === 'thread' && available.length <= 1) {
+  if (!manual && !briefMode && mode === 'thread' && available.length <= 1) {
     toast(
       'В переписке доступен 1 фрагмент. Чтобы учесть всю цепочку, нажмите «Открыть всю переписку» и повторите.',
       true,
@@ -1673,10 +1833,14 @@ async function generateSummary(scope = 'open', brief = false) {
     id: uid('msg'),
     role: 'user',
     content: briefMode
-      ? 'Краткая сводка открытого письма'
-      : mode === 'open'
-        ? 'Разбери открытое письмо'
-        : 'Разбери всю доступную переписку',
+      ? manual
+        ? 'Краткая сводка своего сообщения'
+        : 'Краткая сводка открытого письма'
+      : manual
+        ? 'Разбери своё сообщение'
+        : mode === 'open'
+          ? 'Разбери открытое письмо'
+          : 'Разбери всю доступную переписку',
     ts: Date.now(),
     meta: {},
   };
@@ -1689,7 +1853,7 @@ async function generateSummary(scope = 'open', brief = false) {
 
   const action = { name: 'summary', scope: briefMode ? 'open' : mode, brief: briefMode };
   state.lastAction = action;
-  const taskMail = mode === 'open' ? openOnlyMail(mailResult.mail) : mailResult.mail;
+  const taskMail = mode === 'open' ? openOnlyMail(baseMail) : baseMail;
   const task = buildSummaryTask({ mail: taskMail, styleHints: styleHints(), scope: mode, brief: briefMode });
   await executeTask(task, { kind: briefMode ? 'brief' : 'summary', action });
 }
@@ -2028,6 +2192,54 @@ function bindEvents() {
   el.btnBrief.addEventListener('click', () => generateSummary('open', true));
   el.btnSummary.addEventListener('click', () => generateSummary('open'));
   el.btnSummaryThread.addEventListener('click', () => generateSummary('thread'));
+  el.manualToggle.addEventListener('click', () => {
+    state.manualOpen = !state.manualOpen;
+    updateManualUi();
+    if (state.manualOpen) el.manualText.focus();
+  });
+  el.manualText.addEventListener('input', () => {
+    state.manualText = el.manualText.value;
+    updateManualUi();
+    renderContextBar();
+    updateQuickActions();
+    refreshEmptyOnly();
+  });
+  el.manualUse.addEventListener('click', () => {
+    const raw = el.manualText.value;
+    const truncated = raw.trim().length > MANUAL_LIMIT;
+    setManualText(raw, { notify: false });
+    const text = getManualText();
+    if (!text) {
+      toast('Вставьте текст сообщения — тогда разберу или отвечу по нему.', true);
+      el.manualText.focus();
+      return;
+    }
+    toast(
+      truncated
+        ? `Текст обрезан до ${MANUAL_LIMIT.toLocaleString('ru-RU')} знаков.`
+        : `Использую своё сообщение: ${text.length.toLocaleString('ru-RU')} знаков`,
+      truncated,
+    );
+  });
+  el.manualPaste.addEventListener('click', async () => {
+    try {
+      if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') throw new Error('NO_CLIPBOARD');
+      const text = await navigator.clipboard.readText();
+      if (!String(text || '').trim()) {
+        toast('Буфер обмена пуст — вставьте текст вручную (Ctrl+V).', true);
+        el.manualText.focus();
+        return;
+      }
+      setManualText(text, { notify: true });
+      toast('Вставлено из буфера');
+    } catch {
+      el.manualText.focus();
+      toast('Буфер недоступен — вставьте вручную (Ctrl+V).', true);
+    }
+  });
+  [el.manualClear, el.manualChipClear].forEach((button) => {
+    button.addEventListener('click', () => clearManualText());
+  });
   el.btnNew.addEventListener('click', newChat);
   el.btnHistory.addEventListener('click', () => (el.drawer.hidden ? openDrawer() : closeDrawer()));
   el.drawerClose.addEventListener('click', closeDrawer);
@@ -2043,10 +2255,18 @@ function bindEvents() {
   el.btnSettings.addEventListener('click', () => chrome.runtime.openOptionsPage());
   el.bannerAction.addEventListener('click', onBannerAction);
   el.contextRemove.addEventListener('click', () => {
+    if (isManualActive()) {
+      clearManualText();
+      return;
+    }
     setContext(null);
     toast('Контекст убран');
   });
   el.contextRefresh.addEventListener('click', async () => {
+    if (isManualActive()) {
+      toast('Используется своё сообщение — очистите поле, чтобы снова читать страницу.');
+      return;
+    }
     state.context = null;
     await initContext();
     toast('Контекст обновлён');
@@ -2144,6 +2364,7 @@ async function init() {
   resizeInput();
   await refreshProviderState();
   bindEvents();
+  updateManualUi();
   // Сначала выясняем контекст вкладки, потом рендерим пустой стейт:
   // иначе почтовые кнопки создаются disabled и не всегда успевают обновиться.
   await consumePendingContext();

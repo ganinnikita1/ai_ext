@@ -75,6 +75,28 @@
         </button>
       </div>
 
+      <section class="manual" id="manual-section" aria-label="Своё сообщение">
+        <div class="manual__head">
+          <button class="manual__toggle" id="btn-manual-toggle" type="button" aria-expanded="true" aria-controls="manual-body">
+            <svg class="icon manual__chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+            <span>Вставьте сообщение</span>
+          </button>
+          <span class="manual__chip" id="manual-chip" hidden>
+            <span class="manual__chip-text" id="manual-chip-text">Своё сообщение · 0 знаков</span>
+            <button class="manual__chip-close" id="btn-manual-chip-clear" type="button" aria-label="Очистить своё сообщение" title="Очистить">×</button>
+          </span>
+        </div>
+        <div class="manual__body" id="manual-body">
+          <textarea class="manual__textarea" id="manual-text" rows="3" maxlength="30000" placeholder="Скопируйте письмо/сообщение сюда — разберу или отвечу по нему"></textarea>
+          <div class="manual__actions">
+            <button class="primary-btn manual__use" id="btn-manual-use" type="button">Использовать</button>
+            <button class="ghost-btn manual__small" id="btn-manual-paste" type="button">Вставить из буфера</button>
+            <button class="ghost-btn manual__small" id="btn-manual-clear" type="button">Очистить</button>
+          </div>
+          <p class="manual__counter" id="manual-counter">0 / 12 000 знаков</p>
+        </div>
+      </section>
+
       <div class="message-meta" id="message-meta" hidden></div>
 
       <main class="chat" id="chat" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Диалог с AI"></main>

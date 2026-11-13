@@ -293,7 +293,7 @@ async function onClearStyle() {
 
 function onExport() {
   const payload = {
-    app: 'pocherk',
+    app: 'aibro',
     version: chrome.runtime.getManifest().version,
     exportedAt: new Date().toISOString(),
     note: 'API-ключ не экспортируется.',
@@ -305,7 +305,7 @@ function onExport() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `pocherk-profile-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.download = `aibro-profile-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -383,6 +383,6 @@ async function init() {
 }
 
 init().catch((error) => {
-  console.error('[Почерк options] init failed', error);
+  console.error('[AI Bro options] init failed', error);
   toast(`Ошибка инициализации настроек: ${error && error.message ? error.message : error}`, true);
 });

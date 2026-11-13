@@ -1,7 +1,7 @@
-"""Генератор монохромных иконок «Почерк» в стиле bb (16/32/48/128 PNG).
+"""Генератор монохромных иконок «AI Bro» в стиле bb (16/32/48/128 PNG).
 
-Тёмный скруглённый квадрат + светлая монограмма «П», hairline-обводка.
-Без внешних ассетов и шрифтов: глиф рисуется прямоугольниками.
+Тёмный скруглённый квадрат + светлая монограмма «AB», hairline-обводка.
+Без внешних ассетов и шрифтов: глифы рисуются линиями/прямоугольниками.
 
 Запуск: python tools/make_icons.py
 """
@@ -28,19 +28,46 @@ def rounded_mask(size: int, radius_ratio: float = 0.25) -> Image.Image:
 
 
 def draw_monogram(size: int) -> Image.Image:
-    """Монограмма «П» из трёх прямоугольников — чёткая на 16px."""
+    """Монограмма «AB»: A — линии, B — вертикаль + две скруглённые чаши."""
     layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
-    glyph_w = size * 0.40
+    stroke = max(round(size * 0.075), 1)
+    total_w = size * 0.56
     glyph_h = size * 0.42
-    stroke = max(size * 0.085, 1)
-    left = (size - glyph_w) / 2
+    gap = size * 0.055
+    letter_w = (total_w - gap) / 2
+    left = (size - total_w) / 2
     top = (size - glyph_h) / 2
-    right = left + glyph_w
     bottom = top + glyph_h
-    draw.rectangle((left, top, left + stroke, bottom), fill=INK)
-    draw.rectangle((right - stroke, top, right, bottom), fill=INK)
-    draw.rectangle((left, top, right, top + stroke), fill=INK)
+
+    # A
+    ax = left
+    apex_x = ax + letter_w / 2
+    draw.line((ax, bottom, apex_x, top), fill=INK, width=stroke, joint="curve")
+    draw.line((apex_x, top, ax + letter_w, bottom), fill=INK, width=stroke, joint="curve")
+    cross_y = top + glyph_h * 0.62
+    draw.line(
+        (ax + letter_w * 0.22, cross_y, ax + letter_w * 0.78, cross_y),
+        fill=INK,
+        width=stroke,
+    )
+
+    # B
+    bx = left + letter_w + gap
+    draw.line((bx, top, bx, bottom), fill=INK, width=stroke)
+    bowl_w = letter_w * 0.78
+    draw.rounded_rectangle(
+        (bx, top, bx + bowl_w, top + glyph_h * 0.48),
+        radius=max(int(letter_w * 0.22), 1),
+        outline=INK,
+        width=stroke,
+    )
+    draw.rounded_rectangle(
+        (bx, top + glyph_h * 0.44, bx + bowl_w * 1.02, bottom),
+        radius=max(int(letter_w * 0.22), 1),
+        outline=INK,
+        width=stroke,
+    )
     return layer
 
 

@@ -473,7 +473,9 @@ button {
   border-radius: var(--radius);
   background: var(--bg-elev-2);
   color: var(--text);
-  font-size: 12px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   box-shadow: var(--shadow-2);
   opacity: 0;
   pointer-events: none;
@@ -532,8 +534,9 @@ button {
   background: var(--text);
   color: var(--bg);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 700;
+  letter-spacing: -0.03em;
   line-height: 1;
   user-select: none;
 }
@@ -542,5 +545,5 @@ button {
   width: 36px;
   height: 36px;
   border-radius: var(--radius);
-  font-size: 18px;
+  font-size: 14px;
 }

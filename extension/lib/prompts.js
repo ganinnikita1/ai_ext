@@ -189,8 +189,9 @@ export function buildReplyTask({
   };
 }
 
-export function buildSummaryTask({ mail, styleHints = '', scope = 'open', contextScope = '' }) {
-  const mode = (scope || contextScope) === 'thread' ? 'thread' : 'open';
+export function buildSummaryTask({ mail, styleHints = '', scope = 'open', contextScope = '', brief = false }) {
+  const briefMode = Boolean(brief);
+  const mode = briefMode ? 'open' : (scope || contextScope) === 'thread' ? 'thread' : 'open';
   const taskMail = mode === 'open' ? openOnlyMail(mail) : mail;
   const available = Array.isArray(taskMail && taskMail.threadMessages)
     ? taskMail.threadMessages
@@ -198,29 +199,34 @@ export function buildSummaryTask({ mail, styleHints = '', scope = 'open', contex
       ? taskMail.messages
       : [];
   const thread = formatMailForPrompt(taskMail, { scope: mode, forReply: false });
-  const instruction = [
-    mode === 'open' ? 'РЕЖИМ: РАЗБОР ОТКРЫТОГО ПИСЬМА.' : 'РЕЖИМ: РАЗБОР ВСЕЙ ДОСТУПНОЙ ПЕРЕПИСКИ.',
-    mode === 'open'
-      ? 'Проанализируй только тело открытого письма: 1) суть; 2) что от тебя хотят; 3) сроки и договорённости (если указаны); 4) действия; 5) чего не хватает. Не пересказывай свёрнутые сообщения/сайдбар.'
-      : 'Это вся доступная переписка из области чтения. Дай: 1) суть в 1–2 предложениях; 2) что от тебя хотят; 3) сроки и договорённости (только если явно указаны); 4) список действий; 5) чего в переписке не хватает для решения. Не выходи за пределы этих сообщений.',
-    mode === 'thread' && available.length <= 1
-      ? 'В области чтения доступно только одно письмо (остальные свёрнуты) — честно скажи это пользователю.'
-      : '',
-    'Пиши списком, коротко. Не придумывай сроки и суммы.',
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const instruction = briefMode
+    ? [
+        'РЕЖИМ: КРАТКАЯ СВОДКА ОТКРЫТОГО ПИСЬМА.',
+        'Дай 3–5 очень коротких пунктов: 1) суть; 2) что от тебя хотят; 3) сроки/договорённости (только если явно указаны); 4) действия. Без воды и без подробного разбора.',
+        'Не придумывай сроки, суммы и имена. Если чего-то нет — не выдумывай.',
+      ].join('\n')
+    : [
+        mode === 'open' ? 'РЕЖИМ: РАЗБОР ОТКРЫТОГО ПИСЬМА.' : 'РЕЖИМ: РАЗБОР ВСЕЙ ДОСТУПНОЙ ПЕРЕПИСКИ.',
+        mode === 'open'
+          ? 'Проанализируй только тело открытого письма: 1) суть; 2) что от тебя хотят; 3) сроки и договорённости (если указаны); 4) действия; 5) чего не хватает. Не пересказывай свёрнутые сообщения/сайдбар.'
+          : 'Это вся доступная переписка из области чтения. Дай: 1) суть в 1–2 предложениях; 2) что от тебя хотят; 3) сроки и договорённости (только если явно указаны); 4) список действий; 5) чего в переписке не хватает для решения. Не выходи за пределы этих сообщений.',
+        mode === 'thread' && available.length <= 1
+          ? 'В области чтения доступно только одно письмо (остальные свёрнуты) — честно скажи это пользователю.'
+          : '',
+        'Пиши списком, коротко. Не придумывай сроки и суммы.',
+      ]
+        .filter(Boolean)
+        .join('\n');
   const untrusted = wrapUntrusted('сообщения из области чтения', thread, LIMITS.mailChars).block;
   return {
-    kind: 'summary',
+    kind: briefMode ? 'brief' : 'summary',
     system: systemPrompt({ styleHints }),
     messages: [{ role: 'user', content: `${untrusted}\n\n${instruction}` }],
-    maxTokens: 700,
-    temperature: 0.3,
-    demo: { kind: 'summary', mail: taskMail, scope: mode, contextScope: mode },
+    maxTokens: briefMode ? 350 : 700,
+    temperature: briefMode ? 0.2 : 0.3,
+    demo: { kind: briefMode ? 'brief' : 'summary', mail: taskMail, scope: mode, contextScope: mode, brief: briefMode },
   };
-}
-export function buildExplainTask({ page, styleHints = '', question = '' }) {
+}export function buildExplainTask({ page, styleHints = '', question = '' }) {
   const text = formatPageForPrompt(page);
   const instruction = question
     ? [

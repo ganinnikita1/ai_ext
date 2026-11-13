@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Builds the Pocherk ("Почерк") Chromium extension package: dist\pocherk-<version>.zip
+    Builds the AI Bro Chromium extension package: dist\aibro-<version>.zip
 
 .DESCRIPTION
     - reads version from manifest.json;
@@ -49,7 +49,7 @@ if ([string]::IsNullOrWhiteSpace($version)) {
     throw 'manifest.json: "version" is empty or missing'
 }
 
-Write-Host ("Pocherk extension v{0}" -f $version) -ForegroundColor Cyan
+Write-Host ("AI Bro extension v{0}" -f $version) -ForegroundColor Cyan
 
 # ---------------------------------------------------------------------------
 # 1. Files referenced by the manifest must exist.
@@ -130,7 +130,7 @@ $payload = @(
 )
 if ($IncludeReadme) { $payload += 'README.md' }
 
-$staging = Join-Path $env:TEMP ("pocherk-build-{0}" -f [guid]::NewGuid().ToString('N'))
+$staging = Join-Path $env:TEMP ("aibro-build-{0}" -f [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $staging -Force | Out-Null
 
 function New-ExtensionZip {
@@ -192,7 +192,7 @@ try {
     foreach ($file in $junk) { Remove-Item -LiteralPath $file.FullName -Force }
 
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
-    $zipPath = Join-Path $OutputDirectory ("pocherk-{0}.zip" -f $version)
+    $zipPath = Join-Path $OutputDirectory ("aibro-{0}.zip" -f $version)
     if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
 
     try {

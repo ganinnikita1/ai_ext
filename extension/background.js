@@ -104,7 +104,7 @@ async function setupSidePanelBehavior() {
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
     return true;
   } catch (error) {
-    console.warn('[Почерк] setPanelBehavior недоступен:', error && error.message);
+    console.warn('[AI Bro] setPanelBehavior недоступен:', error && error.message);
     return false;
   }
 }
@@ -119,7 +119,7 @@ async function openPanelWindow(tab) {
     await chrome.windows.create({ url, type: 'popup', width: 430, height: 800 });
     return true;
   } catch (error) {
-    console.warn('[Почерк] fallback window:', error && error.message);
+    console.warn('[AI Bro] fallback window:', error && error.message);
     return false;
   }
 }
@@ -139,13 +139,13 @@ function openPanelForTab(tab) {
         const promise = chrome.sidePanel.open(option);
         if (promise && typeof promise.catch === 'function') {
           promise.catch((error) => {
-            console.warn('[Почерк] sidePanel.open не удался, fallback:', error && error.message);
+            console.warn('[AI Bro] sidePanel.open не удался, fallback:', error && error.message);
             openPanelWindow(target);
           });
         }
         return true;
       } catch (error) {
-        console.warn('[Почерк] sidePanel.open исключение:', error && error.message);
+        console.warn('[AI Bro] sidePanel.open исключение:', error && error.message);
       }
     }
   }
@@ -167,12 +167,12 @@ function createContextMenus() {
       });
       chrome.contextMenus.create({
         id: MENU_PAGE,
-        title: 'Почерк: разобрать страницу',
+        title: 'AI Bro: разобрать страницу',
         contexts: ['page'],
       });
     });
   } catch (error) {
-    console.warn('[Почерк] contextMenus:', error && error.message);
+    console.warn('[AI Bro] contextMenus:', error && error.message);
   }
 }
 
@@ -428,7 +428,7 @@ async function seedDefaults() {
       await chrome.storage.local.set({ [STORAGE_KEYS.settings]: { ...DEFAULT_SETTINGS } });
     }
   } catch (error) {
-    console.warn('[Почерк] seedDefaults:', error && error.message);
+    console.warn('[AI Bro] seedDefaults:', error && error.message);
   }
 }
 

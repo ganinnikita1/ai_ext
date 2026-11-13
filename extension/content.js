@@ -1,5 +1,5 @@
 /**
- * content.js — контент-скрипт «Почерк» (classic script, без ES-модулей).
+ * content.js — контент-скрипт «AI Bro» (classic script, без ES-модулей).
  *
  * Что делает:
  *  - эвристически извлекает основной текст страницы (Readability-like, без библиотек);
@@ -20,7 +20,7 @@
   if (window.__AI_COPILOT_CONTENT__) return;
   window.__AI_COPILOT_CONTENT__ = true;
 
-  const VERSION = '0.2.12';
+  const VERSION = '0.2.13';
   const LIMITS = { pageChars: 14000, mailChars: 12000, selectionChars: 4000, comptoserChars: 6000, walkBudget: 20000 };
 
   const NOISE_TAGS = new Set([
@@ -836,14 +836,19 @@
     }
     const roleMain = document.querySelector('[role="main"]');
     if (roleMain && isVisible(roleMain) && !inSidebar(roleMain) && hasMessage(roleMain)) return roleMain;
-    const visibleBody = Array.from(document.querySelectorAll('.mail-Message-Body, .mail-Message-Body-Content')).find(
-      (element) => isVisible(element) && !inSidebar(element),
-    );
-    if (visibleBody) {
-      const pane = visibleBody.closest(YANDEX_READING_PANE_SELECTORS.join(', '));
-      if (pane && isVisible(pane) && !inSidebar(pane)) return pane;
-      const paneMain = visibleBody.closest('[role="main"]');
-      if (paneMain && !inSidebar(paneMain)) return paneMain;
+    // Fallback: видимое тело вне сайдбара уже достаточно. Берём карточку вокруг самого
+    // большого тела (Fwd/классический layout без .mail-MessageView/[role=main]).
+    const bodies = Array.from(
+      document.querySelectorAll('.mail-Message-Body, .mail-Message-Body-Content, [class*="Message-Body" i]'),
+    )
+      .filter((element) => isVisible(element) && !inSidebar(element))
+      .sort((a, b) => String(b.textContent || '').length - String(a.textContent || '').length);
+    for (const visibleBody of bodies) {
+      const card =
+        visibleBody.closest('.mail-Message, .mail-Thread-Message') ||
+        visibleBody.closest('[class*="MessageView" i], [class*="Message-View" i], [class*="Mail-Message" i]');
+      if (card && isVisible(card) && !inSidebar(card)) return card;
+      if (visibleBody.parentElement && !inSidebar(visibleBody.parentElement)) return visibleBody.parentElement;
     }
     return null;
   }
@@ -1000,6 +1005,10 @@
   function collectYandexMessageNodes(main, isVisible) {
     // 1) Классический BEM-UI Яндекс 360: карточки .mail-Message / .mail-Thread-Message с телом.
     const bem = [];
+    // Fallback-reading-pane может быть самой карточкой письма.
+    if (main.matches && main.matches('.mail-Message, .mail-Thread-Message') && isVisible(main)) {
+      if (!main.closest(YANDEX_SNIPPET_SELECTOR) && !main.closest(YANDEX_SIDEBAR_SELECTOR)) bem.push(main);
+    }
     for (const selector of ['.mail-Message', '.mail-Thread-Message']) {
       let nodes;
       try {
@@ -1421,15 +1430,15 @@
       button.className = 'btn';
       button.type = 'button';
       button.setAttribute('data-state', 'idle');
-      button.setAttribute('aria-label', 'Почерк: спросить про это письмо');
-      button.title = 'Почерк — открыть панель с контекстом';
+      button.setAttribute('aria-label', 'AI Bro: спросить про это письмо');
+      button.title = 'AI Bro — открыть панель с контекстом';
       const dot = document.createElement('span');
       dot.className = 'dot';
       const label = document.createElement('span');
-      label.textContent = 'Почерк';
+      label.textContent = 'AI Bro';
       const sr = document.createElement('span');
       sr.className = 'sr';
-      sr.textContent = 'Спросить Почерк про открытое письмо';
+      sr.textContent = 'Спросить AI Bro про открытое письмо';
       button.append(dot, label, sr);
       wrap.append(button);
       shadow.append(style, wrap);

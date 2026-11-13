@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Почерк</title>
+    <title>AI Bro</title>
     <link rel="stylesheet" href="styles/base.css" />
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
@@ -33,9 +33,9 @@
     <div class="app">
       <header class="topbar">
         <div class="topbar__brand">
-          <span class="brand-mark" aria-hidden="true">П</span>
+          <span class="brand-mark" aria-hidden="true">AB</span>
           <div class="topbar__titles">
-            <h1 class="topbar__title">Почерк</h1>
+            <h1 class="topbar__title">AI Bro</h1>
             <p class="topbar__subtitle" id="provider-state">Проверяем настройки…</p>
           </div>
         </div>
@@ -88,6 +88,10 @@
           <svg class="icon" aria-hidden="true"><use href="#i-mail"></use></svg>
           Ответить на письмо
         </button>
+        <button class="chip" id="btn-brief" type="button" disabled>
+          <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
+          Краткая сводка
+        </button>
         <button class="chip" id="btn-summary" type="button" disabled>
           <svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg>
           Разобрать письмо
@@ -125,7 +129,7 @@
         </div>
         <p class="composer__note" id="composer-note">
           <span>Enter — спросить, Shift+Enter — новая строка.</span>
-          <span>Почерк не отправляет письма сам — только вставка текста.</span>
+          <span>AI Bro не отправляет письма сам — только вставка текста.</span>
         </p>
       </form>
     </div>
@@ -137,7 +141,7 @@
           <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
         </button>
       </div>
-      <p class="drawer__hint">Почерк хранит чаты только в этом браузере (chrome.storage.local).</p>
+      <p class="drawer__hint">AI Bro хранит чаты только в этом браузере (chrome.storage.local).</p>
       <ul class="session-list" id="session-list"></ul>
     </aside>
 

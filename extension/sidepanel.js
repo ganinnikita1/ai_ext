@@ -1,5 +1,5 @@
 /**
- * sidepanel.js — логика боковой панели «Почерк».
+ * sidepanel.js — логика боковой панели «AI Bro».
  *
  * Здесь: состояние чата, вызовы модели (или демо-режим), рендер сообщений,
  * варианты ответа на письмо, вставка в композер, обучение стилю и голосовой ввод
@@ -65,6 +65,7 @@ const el = {
   btnSettings: $('btn-settings'),
   btnExplain: $('btn-explain'),
   btnReply: $('btn-reply'),
+  btnBrief: $('btn-brief'),
   btnSummary: $('btn-summary'),
   btnSummaryThread: $('btn-summary-thread'),
   drawer: $('drawer'),
@@ -201,7 +202,7 @@ async function saveSessions() {
       .map((s) => ({ ...s, messages: s.messages.slice(-80) }));
     await chrome.storage.local.set({ [STORAGE_KEYS.chat]: persisted });
   } catch (error) {
-    console.warn('[Почерк] saveSessions:', error);
+    console.warn('[AI Bro] saveSessions:', error);
   }
 }
 
@@ -209,7 +210,7 @@ async function saveSettings() {
   try {
     await chrome.storage.local.set({ [STORAGE_KEYS.settings]: state.settings });
   } catch (error) {
-    console.warn('[Почерк] saveSettings:', error);
+    console.warn('[AI Bro] saveSettings:', error);
   }
 }
 
@@ -217,7 +218,7 @@ async function saveProfile() {
   try {
     await chrome.storage.local.set({ [STORAGE_KEYS.profile]: state.profile });
   } catch (error) {
-    console.warn('[Почерк] saveProfile:', error);
+    console.warn('[AI Bro] saveProfile:', error);
   }
 }
 
@@ -504,10 +505,12 @@ function setContext(context) {
 function updateQuickActions() {
   const hasMail = !!(state.context && state.context.kind === 'mail') || state.mailAvailable;
   el.btnReply.hidden = !hasMail;
+  el.btnBrief.hidden = !hasMail;
   el.btnSummary.hidden = !hasMail;
   el.btnSummaryThread.hidden = !hasMail;
   el.btnExplain.hidden = hasMail;
   el.btnReply.disabled = !hasMail || state.busy;
+  el.btnBrief.disabled = !hasMail || state.busy;
   el.btnSummary.disabled = !hasMail || state.busy;
   el.btnSummaryThread.disabled = !hasMail || state.busy;
   el.btnExplain.disabled = state.busy;
@@ -635,7 +638,7 @@ function renderEmptyState() {
   const text = document.createElement('p');
   text.className = 'empty__text';
   text.textContent =
-    'Почерк читает открытую страницу и письмо в Gmail, Outlook и Яндекс Почте, предлагает ответы и подстраивается под ваш стиль. Письма не отправляются — текст вставляете и отправляете вы сами.';
+    'AI Bro читает открытую страницу и письмо в Gmail, Outlook и Яндекс Почте, предлагает ответы и подстраивается под ваш стиль. Письма не отправляются — текст вставляете и отправляете вы сами.';
   wrap.appendChild(text);
 
   if (state.demo) {
@@ -656,9 +659,10 @@ function renderEmptyState() {
   const suggestions = [];
   if (state.mailAvailable) {
     suggestions.push(
+      { icon: '#i-mail', label: 'Ответить на письмо', run: () => generateReply(), mail: true, disabled: !state.mailAvailable },
+      { icon: '#i-sparkles', label: 'Краткая сводка', run: () => generateSummary('open', true), mail: true, disabled: !state.mailAvailable },
       { icon: '#i-mail', label: 'Разобрать письмо', run: () => generateSummary('open'), mail: true, disabled: !state.mailAvailable },
       { icon: '#i-mail', label: 'Разобрать всю переписку', run: () => generateSummary('thread'), mail: true, disabled: !state.mailAvailable },
-      { icon: '#i-mail', label: 'Ответить на письмо', run: () => generateReply(), mail: true, disabled: !state.mailAvailable },
     );
   } else {
     suggestions.push({ icon: '#i-page', label: 'Объяснить эту страницу', run: () => explainPage() });
@@ -863,7 +867,7 @@ class MessageView {
     const dot = document.createElement('span');
     dot.className = 'status-dot';
     const name = document.createElement('span');
-    name.textContent = message.role === 'user' ? 'Вы' : 'Почерк';
+    name.textContent = message.role === 'user' ? 'Вы' : 'AI Bro';
     head.append(dot, name);
     if (message.role === 'assistant' && message.meta && message.meta.demo) {
       const badge = document.createElement('span');
@@ -1638,7 +1642,7 @@ async function generateReply(intent = '') {
   await executeTask(task, { kind: 'reply', variantMode: true, action });
 }
 
-async function generateSummary(scope = 'open') {
+async function generateSummary(scope = 'open', brief = false) {
   if (state.busy) return;
   const mailResult = await resolveMail();
   if (!mailResult.mail) {
@@ -1650,12 +1654,14 @@ async function generateSummary(scope = 'open') {
     toast('Контекст письма устарел — обновите страницу или панель и повторите.', true);
     return;
   }
-  const mode = scope === 'thread' ? 'thread' : 'open';
-  const available = Array.isArray(mailResult.mail.threadMessages)    ? mailResult.mail.threadMessages
+  const briefMode = Boolean(brief);
+  const mode = briefMode ? 'open' : scope === 'thread' ? 'thread' : 'open';
+  const available = Array.isArray(mailResult.mail.threadMessages)
+    ? mailResult.mail.threadMessages
     : Array.isArray(mailResult.mail.messages)
       ? mailResult.mail.messages
       : [];
-  if (mode === 'thread' && available.length <= 1) {
+  if (!briefMode && mode === 'thread' && available.length <= 1) {
     toast(
       'В переписке доступен 1 фрагмент. Чтобы учесть всю цепочку, нажмите «Открыть всю переписку» и повторите.',
       true,
@@ -1666,7 +1672,11 @@ async function generateSummary(scope = 'open') {
   const userMessage = {
     id: uid('msg'),
     role: 'user',
-    content: mode === 'open' ? 'Разбери открытое письмо' : 'Разбери всю доступную переписку',
+    content: briefMode
+      ? 'Краткая сводка открытого письма'
+      : mode === 'open'
+        ? 'Разбери открытое письмо'
+        : 'Разбери всю доступную переписку',
     ts: Date.now(),
     meta: {},
   };
@@ -1677,11 +1687,11 @@ async function generateSummary(scope = 'open') {
   el.chat.appendChild(view.root);
   scrollToBottom(true);
 
-  const action = { name: 'summary', scope: mode };
+  const action = { name: 'summary', scope: briefMode ? 'open' : mode, brief: briefMode };
   state.lastAction = action;
   const taskMail = mode === 'open' ? openOnlyMail(mailResult.mail) : mailResult.mail;
-  const task = buildSummaryTask({ mail: taskMail, styleHints: styleHints(), scope: mode });
-  await executeTask(task, { kind: 'summary', action });
+  const task = buildSummaryTask({ mail: taskMail, styleHints: styleHints(), scope: mode, brief: briefMode });
+  await executeTask(task, { kind: briefMode ? 'brief' : 'summary', action });
 }
 
 function runAction(action) {
@@ -1689,7 +1699,7 @@ function runAction(action) {
   if (action.name === 'chat') return sendChat(action.question);
   if (action.name === 'explain') return explainPage(action.question || '');
   if (action.name === 'reply') return generateReply(action.intent || '');
-  if (action.name === 'summary') return generateSummary(action.scope || 'open');
+  if (action.name === 'summary') return generateSummary(action.scope || 'open', Boolean(action.brief));
   return undefined;
 }
 
@@ -2015,6 +2025,7 @@ function bindEvents() {
   el.send.addEventListener('click', () => resizeInput());
   el.btnExplain.addEventListener('click', () => explainPage());
   el.btnReply.addEventListener('click', () => generateReply());
+  el.btnBrief.addEventListener('click', () => generateSummary('open', true));
   el.btnSummary.addEventListener('click', () => generateSummary('open'));
   el.btnSummaryThread.addEventListener('click', () => generateSummary('thread'));
   el.btnNew.addEventListener('click', newChat);
@@ -2126,7 +2137,7 @@ async function init() {
   try {
     await loadState();
   } catch (error) {
-    console.warn('[Почерк] loadState:', error);
+    console.warn('[AI Bro] loadState:', error);
   }
   applyTheme();
   refreshVoiceUi();
@@ -2139,7 +2150,7 @@ async function init() {
   try {
     await initContext();
   } catch (error) {
-    console.warn('[Почерк] initContext:', error);
+    console.warn('[AI Bro] initContext:', error);
   }
   renderChat();
   updateQuickActions();
@@ -2151,7 +2162,7 @@ async function init() {
 }
 
 init().catch((error) => {
-  console.error('[Почерк] init failed', error);
+  console.error('[AI Bro] init failed', error);
   renderChat();
   const box = document.createElement('div');
   box.className = 'error-box';

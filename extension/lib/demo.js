@@ -137,6 +137,21 @@ function explainText(page, question) {
   return lines.join('\n');
 }
 
+function briefText(mail) {
+  const m = mail || {};
+  const messages = Array.isArray(m.messages) ? m.messages : [];
+  const last = messages[messages.length - 1] || {};
+  const subject = cleanSubject(m.subject) || 'без темы';
+  const from = displayName(last.from);
+  const attachments = Array.isArray(last.attachments) ? last.attachments.filter(Boolean) : [];
+  const lines = [`Кратко по письму «${subject}»:`];
+  lines.push(`- Суть: ${firstSentences(last.text, 1, 160) || 'Текст письма не извлечён.'}`);
+  lines.push(`- Что хотят: ответ отправителю (${from}).`);
+  lines.push('- Сроки: явно не указаны — уточните при ответе.');
+  lines.push(`- Действия: ответить; ${attachments.length ? `проверить вложение «${attachments[0]}»` : 'проверить детали письма'}.`);
+  return lines.join('\n');
+}
+
 function summaryText(mail) {
   const m = mail || {};
   const messages = Array.isArray(m.messages) ? m.messages : [];
@@ -188,6 +203,7 @@ function chatText(demo) {
 function buildText(demo) {
   const d = demo || {};
   if (d.kind === 'reply') return formatVariants(replyVariants(d.mail));
+  if (d.kind === 'brief') return briefText(d.mail);
   if (d.kind === 'summary') return summaryText(d.mail);
   if (d.kind === 'explain' || d.kind === 'page_question') return explainText(d.page, d.question);
   if (d.kind === 'chat') return chatText(d);

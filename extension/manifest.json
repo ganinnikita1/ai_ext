@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Почерк",
-  "short_name": "Почерк",
-  "version": "0.2.12",
-  "description": "Помогает отвечать на письма в Gmail, Outlook и Яндекс Почте и разбирать страницы.",
+  "name": "AI Bro",
+  "short_name": "AI Bro",
+  "version": "0.2.13",
+  "description": "AI Bro: ответы на письма и разбор страниц в Gmail, Outlook и Яндекс Почте.",
   "minimum_chrome_version": "114",
   "icons": {
     "16": "icons/icon16.png",
@@ -12,7 +12,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Почерк — открыть панель (Ctrl+Shift+Y)",
+    "default_title": "AI Bro — открыть панель (Ctrl+Shift+Y)",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -75,7 +75,7 @@
         "default": "Ctrl+Shift+Y",
         "mac": "Command+Shift+Y"
       },
-      "description": "Открыть «Почерк»"
+      "description": "Открыть «AI Bro»"
     }
   },
   "content_security_policy": {

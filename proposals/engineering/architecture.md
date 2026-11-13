@@ -1,8 +1,8 @@
-# Почерк — техническая архитектура MVP-расширения
+# AI Bro — техническая архитектура MVP-расширения
 
 Документ для инженерного ревью, стора и следующего шага разработки. Кодовый скелет —
 `browser-ai-copilot/extension`, продуктовый концепт — `browser-ai-copilot/proposals/inventor/concept.md`.
-Название продукта: **Почерк**, версия скелета 0.2.12.
+Название продукта: **AI Bro**, версия скелета 0.2.13.
 
 ## 1. Границы этого этапа
 
@@ -39,7 +39,7 @@
 5. `chrome.scripting.executeScript` на обычной странице (activeTab) и на Gmail/Outlook.
 6. Чтение треда и вставка в композер на `outlook.live.com`/`outlook.office.com` и на `mail.yandex.ru`
    (вёрстка отличается; для Яндекса — best-effort, см. раздел 7).
-7. Плавающая кнопка «Почерк» на почте: не перекрывает кнопку «Написать», не исчезает при SPA-навигации.
+7. Плавающая кнопка «AI Bro» на почте: не перекрывает кнопку «Написать», не исчезает при SPA-навигации.
 8. `chrome.permissions.request` для домена провайдера и `chrome.permissions.remove` в настройках.
 9. Web Speech API (`ru-RU`, автостоп, запрет микрофона) и `chrome.storage.local` в Edge-профиле.
 
@@ -73,7 +73,7 @@ DeepSeek; localhost-хосты не используются, провайдер
 | `activeTab` | чтение текущей вкладки по действию пользователя (иконка/команда/меню) | нет постоянного доступа ко всем вкладкам | «Доступ к странице только после действия пользователя» |
 | `scripting` | инжект `content.js` по требованию на произвольные страницы | инжектим только по клику, не на все сайты | «Извлекает текст активной страницы по запросу» |
 | `sidePanel` | UI в боковой панели | — | «Показывает интерфейс ассистента» |
-| `contextMenus` | пункты «Спросить AI про выделенное» и «Почерк: разобрать страницу» | — | «Добавляет два пункта меню» |
+| `contextMenus` | пункты «Спросить AI про выделенное» и «AI Bro: разобрать страницу» | — | «Добавляет два пункта меню» |
 | `optional_host_permissions` | чтение произвольной страницы по кнопке (activeTab/scripting) и fetch к DeepSeek | `https://*/*` нужен для инъекции на сайт по действию пользователя; localhost не используется | «Доступ к сайту только после действия пользователя; запросы к DeepSeek» |
 | `content_scripts` (20 доменов) | плавающая кнопка и чтение открытого письма **без** клика | Gmail, Outlook Web (3) и Яндекс Почта/360 (16 зеркал `mail.yandex.*`, `mail.360.yandex.*`); `<all_urls>` нет | «Читает открытое письмо на Gmail, Outlook Web и Яндекс Почте» |
 
@@ -112,10 +112,10 @@ DeepSeek; localhost-хосты не используются, провайдер
 
 Поток «ответ на письмо»: панель → `GET_ACTIVE_TAB` → `ENSURE_CONTENT` → `GET_MAIL` (перечитывается перед каждым действием; content script шлёт `MAIL_CONTEXT_CHANGED` при смене открытого письма, debounce 1.5 с) →
 `lib/prompts.buildReplyTask` (тред оборачивается как недоверенные данные) → `llm-client` →
-стрим → парсер вариантов → карточки → `INSERT_TEXT` в композер → пользователь правит и отправляет. Кнопка панели — «Спросить» (не отправка письма); вставка идёт только выбранным вариантом; демо-дисклеймер показывается отдельным UI-notice и не попадает в тело.
+стрим → парсер вариантов → карточки → `INSERT_TEXT` в композер → пользователь правит и отправляет. Кнопка панели — «Спросить» (не отправка письма); quickbar: «Ответить на письмо», «Краткая сводка», «Разобрать письмо», «Разобрать всю переписку»; вставка идёт только выбранным вариантом; демо-дисклеймер показывается отдельным UI-notice и не попадает в тело.
 Промпты: content script отдаёт `openMessage` (открытое письмо) и `threadMessages` (все сообщения reading pane);
 `formatMailForPrompt({scope:'open'|'thread'})` для open берёт только `openMessage`, для thread — все
-`threadMessages`; reply всегда open; summary/chat scope задаёт кнопка; анти-галлюцинации (Адресат/Вложения) сохранены.
+`threadMessages`; reply всегда open; summary/chat scope задаёт кнопка; `buildSummaryTask({brief:true})` — краткая сводка (3–5 пунктов) по open; анти-галлюцинации (Адресат/Вложения) сохранены.
 
 ### Формат сообщений
 
@@ -198,7 +198,7 @@ PDF-вложения, «показать скрытую часть») недос
 **Яндекс Почта и Яндекс 360 (best-effort).** Домены `mail.yandex.*` (8) и `mail.360.yandex.*` (8)
 добавлены в `content_scripts` (20 доменов почты всего), `WEBMAIL_HOSTS` и `detectSite()` (site = `yandex`).
 Приоритет чтения: только **область чтения открытого письма** (`.mail-MessageView`/`.mail-Thread`/`.mail-Content`/`[role="main"]`), не `document.body`/layout; внутри — BEM-карточки `.mail-Message`/`.mail-Thread-Message` с
-`.mail-Message-Body`; сайдбары/списки (`.mail-ThreadsList`, `.mail-MessageList`, `[class*="Sidebar"]`, `[class*="Snippet"]`, `[class*="related"]`, `[role="complementary"]`) исключаются из `openMessage`/`threadMessages`/attachments/темы; сниппеты отбрасываются; если видно одно письмо — threadMessages = [оно]. Сообщения ниже вьюпорта читаются, если уже отрисованы в DOM reading pane; свёрнутые/ленивые — только после «Открыть всю переписку»/прокрутки.
+`.mail-Message-Body`; сайдбары/списки (`.mail-ThreadsList`, `.mail-MessageList`, `[class*="Sidebar"]`, `[class*="Snippet"]`, `[class*="related"]`, `[role="complementary"]`) исключаются из `openMessage`/`threadMessages`/attachments/темы; сниппеты отбрасываются; если видно одно письмо — threadMessages = [оно]. Если нет `.mail-MessageView`/`[role=main]`, fallback берёт видимое `.mail-Message-Body` вне сайдбара и строит карточку вокруг него (Fwd-письма не дают пустой стейт). Сообщения ниже вьюпорта читаются, если уже отрисованы в DOM reading pane; свёрнутые/ленивые — только после «Открыть всю переписку»/прокрутки.
 Тема — `.mail-Thread-Subject`/`.mail-Message-Subject`/`h1`/`h2`/title;
 отправитель — `.mail-Message-Sender`/`.mail-Message-Header-From`/`[class*="Sender"]`/`mailto` (display name + email, без аватара); получатель — «Кому:»; время — `.mail-Message-Date`/`time`/дата в шапке;
 тело — `.mail-Message-Body`; вложения — `.mail-Message-Attachments`/`[class*="Attachment"]`/`[download_url]` (только имена файлов); `cleanYandexBody` вырезает цитаты (blockquote, вложенные `.mail-Message`/`.mail-Message-Body`, «… пишет:»), но сохраняет блок «Пересылаемое сообщение». Если темы или отправителя нет —
@@ -231,10 +231,10 @@ DOM даёт 80% ценности за 1% усилий; OAuth — отдельн
    options, иконки, content scripts);
 3. копирует runtime-файлы в чистый staging (без `tools`, `dist`, `package.ps1`, README);
 4. пишет zip с forward-slash entry names (не `Compress-Archive`, который на Windows ставит `\`) →
-   `extension/dist/pocherk-<version>.zip`, manifest в корне архива;
+   `extension/dist/aibro-<version>.zip`, manifest в корне архива;
 5. печатает размер, число и список записей.
 
-Версионирование: SemVer в `manifest.json`; `0.1.x` — первый скелет, `0.2.12` — открытое письмо и две кнопки анализа
+Версионирование: SemVer в `manifest.json`; `0.1.x` — первый скелет, `0.2.13` — AI Bro, краткая сводка, Fwd-fallback
 по умолчанию, `0.3.0` — бета с OAuth-гибридом, `1.0.0` — публичный релиз. Каждый релиз — отдельный zip,
 старые не перезаписываем; changelog в
 `proposals/engineering/`.
@@ -266,7 +266,7 @@ DOM даёт 80% ценности за 1% усилий; OAuth — отдельн
 
 **Общее:** store listing на английском (или локализован), лицензия, поддержка/контакты, версия и changelog.
 
-## 10. «Читает ли Почерк страницы самого Chrome?»
+## 10. «Читает ли AI Bro страницы самого Chrome?»
 
 Да — но только обычные веб-страницы и только по доступу, который даёт пользователь.
 
